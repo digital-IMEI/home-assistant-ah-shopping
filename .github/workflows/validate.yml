@@ -64,6 +64,7 @@ jobs:
       - run: node tests/frontend-scroll.cjs
       - run: node tests/frontend-decoder.cjs
       - run: node tests/frontend-feedback.cjs
+      - run: node tests/frontend-freshness.cjs
 
   hassfest:
     runs-on: ubuntu-latest

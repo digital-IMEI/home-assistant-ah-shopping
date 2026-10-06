@@ -6,7 +6,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test:frontend": "node tests/frontend-scroll.cjs && node tests/frontend-decoder.cjs && node tests/frontend-feedback.cjs"
+    "test:frontend": "node tests/frontend-scroll.cjs && node tests/frontend-decoder.cjs && node tests/frontend-feedback.cjs && node tests/frontend-freshness.cjs"
   },
   "devDependencies": {
     "playwright": "1.62.1"

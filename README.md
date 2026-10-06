@@ -40,7 +40,7 @@ In the combined view, the ordered quantity is a read-only minimum. Minus removes
 - Home Assistant **2026.8.2 or newer**.
 - An Albert Heijn Netherlands account and internet access to AH.
 - HACS, or a manual custom-integration installation.
-- For scanning: a camera and browser camera permission. Use **HTTPS** (or another browser-approved secure context); a working camera preview is device/browser-dependent.
+- For scanning: a camera and browser camera permission. The live camera scanner needs **HTTPS** (or another browser-approved secure context); a working camera preview is device/browser-dependent. On plain HTTP (for example the local `http://` address at home), **Scan product** falls back to taking a photo with the device camera and decodes the barcode from that photo.
 - One AH account per installation is recommended. Multi-account action routing is not supported.
 
 ### HACS — recommended
@@ -127,7 +127,7 @@ Open the integration's **Configure** screen.
 
 | Setting | Default | Range / behaviour |
 | --- | --- | --- |
-| Full update interval | 5 minutes | 1–60 minutes. Successful writes update locally and trigger reconciliation between full polls. |
+| Full update interval | 5 minutes | 1–60 minutes. Successful writes update locally and trigger reconciliation between full polls. A visible shopping-list card additionally asks for a refresh when it appears and every minute while it stays visible (at most once per 30 seconds), so changes made in the AH app show up quickly. |
 
 ### Dashboard card
 

@@ -3,6 +3,11 @@ const REMOVAL_UNDO_MS=4000;
 const REMOVAL_ANIMATION_MS=320;
 const SCAN_FEED_TOP_MS=10000;
 const SCAN_FEED_DIMMED_MS=5000;
+// A visible list asks the integration for fresh AH data, so edits made in the
+// AH app appear without waiting for the full polling interval.
+const LIST_REFRESH_MIN_MS=30000;
+const LIST_REFRESH_VISIBLE_MS=60000;
+const PHOTO_MAX_SIDE=1600;
 const EAN_L=["0001101","0011001","0010011","0111101","0100011","0110001","0101111","0111011","0110111","0001011"];
 const EAN_G=["0100111","0110011","0011011","0100001","0011101","0111001","0000101","0010001","0001001","0010111"];
 const EAN_R=EAN_L.map(p=>[...p].map(c=>c==="1"?"0":"1").join(""));
@@ -47,7 +52,7 @@ function decodeEANFromImageData(imageData){
 }
 
 class AhShoppingCard extends HTMLElement {
-  constructor(){super(); this.attachShadow({mode:'open'}); this._config={}; this._hass=null; this._listScrollTop=0; this._scanner=null; this._scanLoop=null; this._scanVideoFrame=null; this._scanAnimationFrame=null; this._decodeWorker=null; this._workerPending=null; this._scanGeneration=0; this._scanCooldownUntil=0; this._facing='user'; this._message=''; this._lastEntitySig=null; this._barcodeDetector=null; this._zxingReader=null; this._decoderMode='local'; this._cameraInfo=''; this._scanCount=0; this._scanBusy=false; this._scanProcessing=false; this._scanQueue=[]; this._heldBarcode=''; this._heldBarcodeLastSeen=0; this._barcodeAbsentSince=0; this._audioContext=null; this._scanProduct=null; this._scanPendingQty=new Map(); this._scanQtyWorkers=new Map(); this._pendingQty=new Map(); this._rowRemovals=new Map(); this._qtyWorkers=new Map(); this._stableItemOrder=new Map(); this._stableItemSeq=0; this._scanInlineActive=false; this._scanRecent=[]; this._scanRecentTimer=null; this._intersecting=false; this._visibilityObserver=null; this._visibilitySetup=false; this._cameraStarting=false; this._digitalZoom=1; this._nativeZoom=1; this._decoderMisses=0; this._scannerRoute=''; this._autoScannerRoute=''; this._autoVisitArmed=true; this._scanTimer=null; this._scanTimerTick=null; this._scanDeadline=0; this._listScrollAnchor=null; this._scanBandCanvas=null; this._scanStatusTimer=null; this._isAndroid=/Android/i.test(navigator.userAgent||''); window.__ahShoppingScanOrder=window.__ahShoppingScanOrder||{seq:0,products:new Map()}; this._scanOrderState=window.__ahShoppingScanOrder; this._visibilityHandler=()=>this._syncScannerVisibility(); this._locationHandler=()=>requestAnimationFrame(()=>this._handleLocationChange());}
+  constructor(){super(); this.attachShadow({mode:'open'}); this._config={}; this._hass=null; this._listScrollTop=0; this._scanner=null; this._scanLoop=null; this._scanVideoFrame=null; this._scanAnimationFrame=null; this._decodeWorker=null; this._workerPending=null; this._scanGeneration=0; this._scanCooldownUntil=0; this._facing='user'; this._message=''; this._lastEntitySig=null; this._barcodeDetector=null; this._zxingReader=null; this._decoderMode='local'; this._cameraInfo=''; this._scanCount=0; this._scanBusy=false; this._scanProcessing=false; this._scanQueue=[]; this._heldBarcode=''; this._heldBarcodeLastSeen=0; this._barcodeAbsentSince=0; this._audioContext=null; this._scanProduct=null; this._scanPendingQty=new Map(); this._scanQtyWorkers=new Map(); this._pendingQty=new Map(); this._rowRemovals=new Map(); this._qtyWorkers=new Map(); this._stableItemOrder=new Map(); this._stableItemSeq=0; this._scanInlineActive=false; this._scanRecent=[]; this._scanRecentTimer=null; this._intersecting=false; this._visibilityObserver=null; this._visibilitySetup=false; this._cameraStarting=false; this._digitalZoom=1; this._nativeZoom=1; this._decoderMisses=0; this._scannerRoute=''; this._autoScannerRoute=''; this._autoVisitArmed=true; this._scanTimer=null; this._scanTimerTick=null; this._scanDeadline=0; this._listScrollAnchor=null; this._scanBandCanvas=null; this._scanStatusTimer=null; this._isAndroid=/Android/i.test(navigator.userAgent||''); window.__ahShoppingScanOrder=window.__ahShoppingScanOrder||{seq:0,products:new Map()}; this._scanOrderState=window.__ahShoppingScanOrder; window.__ahShoppingListRefresh=window.__ahShoppingListRefresh||{last:0}; this._listRefreshState=window.__ahShoppingListRefresh; this._listRefreshTimer=null; this._photoInput=null; this._visibilityHandler=()=>{this._syncScannerVisibility();this._syncListRefresh();}; this._locationHandler=()=>requestAnimationFrame(()=>this._handleLocationChange());}
   static getStubConfig(){return {show_header:true,show_scan:true,show_products:true,product_source:'shopping_list',scanner_mode:'button',scan_camera:'front',scan_zoom:2,scan_decoder:'auto'};}
   static getConfigForm(){return {schema:[
     {name:'title',selector:{text:{}}},
@@ -646,7 +651,9 @@ class AhShoppingCard extends HTMLElement {
 
   _openScanner(){
     if(!navigator.mediaDevices?.getUserMedia){
-      this._toast('Camera is niet beschikbaar. Gebruik HTTPS en geef cameratoegang.',true);
+      // Live camera streams need HTTPS. A photo from the device camera does not,
+      // so plain-HTTP dashboards (e.g. the local URL at home) can still scan.
+      this._scanFromPhoto();
       return;
     }
     this._armScanAudio();
@@ -1000,6 +1007,78 @@ class AhShoppingCard extends HTMLElement {
       const pending=this._workerPending;this._workerPending=null;
       pending?.reject(new Error(event.message||'Barcode worker failed'));
     };
+  }
+
+  _scanFromPhoto(){
+    this._armScanAudio();
+    if(!this._photoInput){
+      const input=document.createElement('input');
+      input.type='file';input.accept='image/*';input.setAttribute('capture','environment');
+      input.style.display='none';
+      input.addEventListener('change',()=>{
+        const file=input.files?.[0];input.value='';
+        if(file)this._addBarcodeFromPhoto(file);
+      });
+      document.body.append(input);
+      this._photoInput=input;
+    }
+    this._photoInput.click();
+  }
+
+  async _photoImageData(file){
+    const bitmap=await createImageBitmap(file);
+    try{
+      const scale=Math.min(1,PHOTO_MAX_SIDE/Math.max(bitmap.width,bitmap.height));
+      const canvas=document.createElement('canvas');
+      canvas.width=Math.max(1,Math.round(bitmap.width*scale));
+      canvas.height=Math.max(1,Math.round(bitmap.height*scale));
+      const ctx=canvas.getContext('2d',{willReadFrequently:true});
+      ctx.drawImage(bitmap,0,0,canvas.width,canvas.height);
+      return ctx.getImageData(0,0,canvas.width,canvas.height);
+    }finally{bitmap.close?.();}
+  }
+
+  _decodePhoto(image){
+    // A short-lived worker of its own: the live scanner stops and restarts its
+    // worker with the camera lifecycle, which must not cancel a photo decode.
+    return new Promise((resolve,reject)=>{
+      const worker=new Worker('/ah_shopping/barcode-worker.js?v=0.2.28');
+      const done=(fn,value)=>{clearTimeout(timeout);worker.terminate();fn(value);};
+      const timeout=setTimeout(()=>done(reject,new Error('Barcode decoder antwoordt niet')),15000);
+      worker.onerror=event=>done(reject,new Error(event.message||'Barcode worker failed'));
+      worker.onmessage=({data})=>{
+        if(data.ready){
+          worker.postMessage({id:1,width:image.width,height:image.height,pixels:image.data.buffer,harder:true,mode:'full'},[image.data.buffer]);
+        }else if(data.id===1){
+          if(data.error)done(reject,new Error(data.error));else done(resolve,data.code||'');
+        }else if(data.error){
+          done(reject,new Error(data.error));
+        }
+      };
+    });
+  }
+
+  async _addBarcodeFromPhoto(file){
+    this._toast('Foto wordt gelezen…');
+    let code='';
+    try{
+      code=await this._decodePhoto(await this._photoImageData(file));
+    }catch(error){
+      console.warn('AH Shopping: photo decoding failed',error);
+    }
+    if(!code){
+      this._toast('Geen barcode gevonden. Fotografeer de streepjescode recht en scherp.',true);
+      return;
+    }
+    try{
+      const r=await this._service('add_barcode',{barcode:code,quantity:1});
+      const p=r.product||{};
+      this._playScanBeep();
+      if(navigator.vibrate)navigator.vibrate(70);
+      this._toast(`${p.title||code} toegevoegd (${Math.max(1,Number(p.quantity_on_list||1))}×)`);
+    }catch(error){
+      this._toast(String(error?.message||error||'Toevoegen mislukt'),true);
+    }
   }
 
   _decodeWasm(image,harder,mode='auto'){
@@ -1563,6 +1642,7 @@ class AhShoppingCard extends HTMLElement {
           const entry=entries[entries.length-1];
           this._intersecting=Boolean(entry?.isIntersecting&&entry.intersectionRatio>0);
           this._syncScannerVisibility();
+          this._syncListRefresh();
         },{threshold:[0,.01,.1]});
         this._visibilityObserver.observe(this);
       }else{
@@ -1574,7 +1654,34 @@ class AhShoppingCard extends HTMLElement {
       this._render();
     }
     this._scanner=this.shadowRoot?.querySelector('#inlineScanner')||null;
-    requestAnimationFrame(()=>this._syncScannerVisibility());
+    requestAnimationFrame(()=>{this._syncScannerVisibility();this._syncListRefresh();});
+  }
+
+  _listVisible(){
+    if(!this.isConnected||!this._hass||document.visibilityState!=='visible')return false;
+    if(this._visibilityObserver&&!this._intersecting)return false;
+    const rect=this.getBoundingClientRect();
+    return rect.width>=2&&rect.height>=2;
+  }
+
+  _syncListRefresh(){
+    const source=String(this._config.product_source||'shopping_list');
+    if(source==='next_order'||!this._listVisible()){
+      clearInterval(this._listRefreshTimer);this._listRefreshTimer=null;
+      return;
+    }
+    this._requestListRefresh();
+    if(!this._listRefreshTimer)this._listRefreshTimer=setInterval(()=>{
+      if(this._listVisible())this._requestListRefresh();else this._syncListRefresh();
+    },LIST_REFRESH_VISIBLE_MS);
+  }
+
+  _requestListRefresh(){
+    // Shared by every card on the page: one integration, one AH account.
+    const now=Date.now();
+    if(now-this._listRefreshState.last<LIST_REFRESH_MIN_MS)return;
+    this._listRefreshState.last=now;
+    this._service('refresh').catch(error=>console.debug('AH Shopping: refresh skipped',error));
   }
 
   disconnectedCallback(){
@@ -1593,6 +1700,8 @@ class AhShoppingCard extends HTMLElement {
     this._visibilityObserver?.disconnect();
     this._visibilityObserver=null;
     this._visibilitySetup=false;
+    clearInterval(this._listRefreshTimer);this._listRefreshTimer=null;
+    this._photoInput?.remove();this._photoInput=null;
     this._intersecting=false;
     this._stopCamera();
     this._scanner=null;

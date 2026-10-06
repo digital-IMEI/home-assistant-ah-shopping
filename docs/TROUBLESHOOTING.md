@@ -29,6 +29,8 @@ For reauthentication, use the same AH account as the existing integration. Never
 
 Use HTTPS and grant camera permission to the dashboard browser/app. Camera capture takes place on that device, not on the Home Assistant server.
 
+Without HTTPS the browser offers no live camera. **Scan product** then opens the device camera for a single photo instead; hold the barcode flat and sharp in the picture. Each photo adds one product.
+
 In Fully Kiosk, check the app and Android camera permissions. Close other apps using the camera. Try `scan_camera: rear` or `front` as appropriate. A hidden/background card intentionally stops its camera.
 
 ## Preview works, but no products are added

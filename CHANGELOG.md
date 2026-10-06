@@ -2,6 +2,11 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
+### Unreleased
+
+- **Scan product** works on plain-HTTP dashboards: without a live camera API it takes a photo with the device camera, decodes it with the bundled ZXing-C++ worker and adds the product. HTTPS keeps the live scanner.
+- A visible shopping-list card requests a refresh when it appears and every minute while visible (throttled to once per 30 seconds across all cards on the page), so removals or additions made in the AH app appear without waiting for the full polling interval. Hidden cards and next-order-only cards do not poll.
+
 ### 0.2.29
 
 - Mirrors the front-camera preview so left/right movement feels natural. Rear-camera preview keeps its normal orientation.
