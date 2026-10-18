@@ -131,8 +131,14 @@ class ShoppingItem:
         if "2E HALVE PRIJS" in mechanism:
             return (quantity // 2) * _cents(unit / 2) / 100
 
-        if "1+1GRATIS" in mechanism.replace(" ", "") or "2EGRATIS" in mechanism.replace(" ", ""):
+        if "2EGRATIS" in mechanism.replace(" ", ""):
             return round((quantity // 2) * unit, 2)
+
+        match = re.search(r"(\d+)\s*\+\s*(\d+)\s*GRATIS", mechanism)
+        if match:
+            pay, free = int(match.group(1)), int(match.group(2))
+            if pay > 0 and free > 0:
+                return round((quantity // (pay + free)) * free * unit, 2)
 
         match = re.search(r"(\d+)\s+HALEN\s+(\d+)\s+BETALEN", mechanism)
         if match:

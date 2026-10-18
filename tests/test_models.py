@@ -246,3 +246,24 @@ def test_embedded_discount_is_reported_without_double_subtraction():
     data = ShoppingListData("x", "List", (ShoppingItem("", 1, 2, product=product),))
     assert data.bonus_savings == 3.00
     assert data.estimated_total == 3.98
+
+
+def _bonus_item(mechanism, quantity, price=3.19):
+    product = Product.from_api({
+        "webshopId": 900,
+        "title": "Testproduct",
+        "currentPrice": price,
+        "priceBeforeBonus": price,
+        "isBonus": True,
+        "bonusMechanism": mechanism,
+    })
+    return ShoppingItem("i1", 900, quantity, "Testproduct", product)
+
+
+def test_n_plus_m_free_promotions():
+    assert _bonus_item("1 + 1 gratis", 2).bonus_savings == 3.19
+    assert _bonus_item("1+1 GRATIS", 3).bonus_savings == 3.19
+    assert _bonus_item("2 + 1 gratis", 2).bonus_savings == 0
+    assert _bonus_item("2 + 1 gratis", 3).bonus_savings == 3.19
+    assert _bonus_item("2 + 1 gratis", 7).bonus_savings == 6.38
+    assert _bonus_item("2e gratis", 2).bonus_savings == 3.19

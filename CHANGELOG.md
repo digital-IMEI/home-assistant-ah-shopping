@@ -2,6 +2,10 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
+### Unreleased
+
+- Calculates every “N + M gratis” promotion (for example 2 + 1 gratis), not only 1 + 1 gratis.
+
 ### 0.2.29
 
 - Mirrors the front-camera preview so left/right movement feels natural. Rear-camera preview keeps its normal orientation.

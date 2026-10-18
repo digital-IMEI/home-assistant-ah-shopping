@@ -218,7 +218,7 @@ Example for a script or automation action sequence:
 
 Totals are calculated **product totals**, not guaranteed final checkout invoices. The order card uses `estimated_product_total` when available; AH's `total_price` remains a separate sensor attribute. Delivery charges, deposits, unavailable products, substitutions and promotions the integration cannot interpret may cause differences.
 
-Supported calculations include current discounted unit prices, second half price, 1+1 free, “N halen M betalen” and “N voor X”. Mixed-product promotions are grouped only for the specifically implemented Big Americans pizza offer, not merely because two products share the same Bonus text. Unknown/personalised promotion rules are not guaranteed.
+Supported calculations include current discounted unit prices, second half price, “N + M gratis” (such as 1+1 and 2+1 free), “N halen M betalen” and “N voor X”. Mixed-product promotions are grouped only for the specifically implemented Big Americans pizza offer, not merely because two products share the same Bonus text. Unknown/personalised promotion rules are not guaranteed.
 
 Read the [troubleshooting guide](docs/TROUBLESHOOTING.md) before reporting a difference, and never publish account identifiers, addresses or authorization data.
 
