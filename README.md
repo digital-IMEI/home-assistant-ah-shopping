@@ -24,8 +24,8 @@ A custom integration with a bundled dashboard card for AH **Mijn lijst**, produc
 - **Fast local decoding:** bundled ZXing-C++/WebAssembly in a background worker, with alternative decoders for different devices.
 - **Scan feedback:** a locally generated checkout-style beep, a green scan line during the 1.2-second successful-add cooldown, and a recent-product feed with quantity controls.
 - **Comfortable editing:** stable rows and scroll position; four seconds to undo a last-quantity removal with the plus button, followed by a smooth collapse.
-- **Struck-through products:** products struck through in the Appie app (for example while shopping in store) are shown struck through and dimmed, in their usual position.
-- **Automation support:** sensors, a read-only native To-do list, and actions for search, lookup, quantities and refresh.
+- **Struck-through products:** products struck through in the Appie app (for example while shopping in store) are shown struck through and dimmed, in their usual position. Below the list, **Doorgestreepte producten terugzetten** and **Doorgestreepte producten verwijderen** (with confirmation) work like the Appie app.
+- **Automation support:** sensors, a read-only native To-do list, and actions for search, lookup, quantities, struck-through products and refresh.
 - **Account synchronisation:** configurable polling and protected recent writes to reduce stale refresh conflicts.
 
 ### Important: list, cart and order
@@ -202,6 +202,8 @@ All action names use the `ah_shopping` domain. Search and lookup require a respo
 | `set_quantity` | `product_id`, `quantity` (0–99) | — | Set absolute list quantity; 0 removes it immediately. |
 | `remove_product` | `product_id` | — | Remove from the list immediately. |
 | `refresh` | — | — | Request a list refresh. |
+| `restore_checked` | — | — | Un-strike every struck-through product on Mijn lijst; response contains `count`. |
+| `remove_checked` | — | — | Remove every struck-through product from Mijn lijst; response contains `count`. |
 
 The four-second undo is a **card feature**; direct actions do not delay removals. Actions operate on the first loaded AH account.
 

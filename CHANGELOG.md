@@ -6,6 +6,7 @@ Historical entries describe the behaviour of that version; the [README](README.m
 
 - Shows products that are struck through in the Appie app struck through and dimmed in the card. Row order, quantities and editing are unchanged.
 - Reports struck-through products as completed in the read-only To-do list instead of always needing action.
+- Adds **Doorgestreepte producten terugzetten** and **Doorgestreepte producten verwijderen** (with confirmation) below the list when products are struck through, backed by the new `ah_shopping.restore_checked` and `ah_shopping.remove_checked` actions.
 
 ### 0.2.29
 

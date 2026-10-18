@@ -15,6 +15,8 @@ SERVICE_ADD_BARCODE = "add_barcode"
 SERVICE_SET_QUANTITY = "set_quantity"
 SERVICE_REMOVE = "remove_product"
 SERVICE_REFRESH = "refresh"
+SERVICE_RESTORE_CHECKED = "restore_checked"
+SERVICE_REMOVE_CHECKED = "remove_checked"
 
 
 def _runtime(hass: HomeAssistant):
@@ -125,6 +127,45 @@ async def _remove(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
         raise HomeAssistantError(str(err)) from err
 
 
+def _checked_items(runtime):
+    return [item for item in runtime.coordinator.data.items if item.checked]
+
+def _item_lock_key(item) -> int | str:
+    return item.product_id if item.product_id > 0 else f"t:{item.description.strip().casefold()}"
+
+async def _restore_checked(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
+    """Un-strike every struck-through item, like the Appie app."""
+    rt=_runtime(hass); count=0
+    try:
+        for item in _checked_items(rt):
+            async with rt.coordinator.product_lock(_item_lock_key(item)):
+                await rt.client.async_set_item_checked(item, False)
+                rt.coordinator.note_checked(item, False)
+            count+=1
+        return {"success":True, "count":count}
+    except AhShoppingError as err:
+        raise HomeAssistantError(str(err)) from err
+
+async def _remove_checked(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
+    """Remove every struck-through item from Mijn lijst, like the Appie app."""
+    rt=_runtime(hass); count=0; free_text_removed=False
+    try:
+        for item in _checked_items(rt):
+            async with rt.coordinator.product_lock(_item_lock_key(item)):
+                await rt.client.async_delete_list_item(item)
+                if item.product_id > 0:
+                    rt.coordinator.note_quantity(item.product_id,0,item.product)
+                else:
+                    free_text_removed=True
+            count+=1
+        return {"success":True, "count":count}
+    except AhShoppingError as err:
+        raise HomeAssistantError(str(err)) from err
+    finally:
+        if free_text_removed:
+            await _refresh(rt)
+
+
 async def _do_refresh(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
     rt=_runtime(hass); await _refresh(rt); return {"success":True}
 
@@ -139,6 +180,8 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         SERVICE_SET_QUANTITY: (_set_quantity, vol.Schema({vol.Required("product_id"): vol.Coerce(int), vol.Required("quantity"): vol.All(vol.Coerce(int), vol.Range(min=0,max=99))})),
         SERVICE_REMOVE: (_remove, vol.Schema({vol.Required("product_id"): vol.Coerce(int)})),
         SERVICE_REFRESH: (_do_refresh, vol.Schema({})),
+        SERVICE_RESTORE_CHECKED: (_restore_checked, vol.Schema({})),
+        SERVICE_REMOVE_CHECKED: (_remove_checked, vol.Schema({})),
     }
     read_only = {SERVICE_SEARCH, SERVICE_LOOKUP}
     for name,(handler,schema) in response_services.items():
@@ -154,6 +197,6 @@ async def async_unload_services(hass: HomeAssistant) -> None:
     data=hass.data.get(DOMAIN,{})
     if not data.get("services_registered"):
         return
-    for name in (SERVICE_SEARCH,SERVICE_LOOKUP,SERVICE_ADD_PRODUCT,SERVICE_ADD_BARCODE,SERVICE_SET_QUANTITY,SERVICE_REMOVE,SERVICE_REFRESH):
+    for name in (SERVICE_SEARCH,SERVICE_LOOKUP,SERVICE_ADD_PRODUCT,SERVICE_ADD_BARCODE,SERVICE_SET_QUANTITY,SERVICE_REMOVE,SERVICE_REFRESH,SERVICE_RESTORE_CHECKED,SERVICE_REMOVE_CHECKED):
         hass.services.async_remove(DOMAIN,name)
     data["services_registered"] = False
