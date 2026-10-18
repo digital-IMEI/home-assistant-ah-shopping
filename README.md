@@ -24,6 +24,7 @@ A custom integration with a bundled dashboard card for AH **Mijn lijst**, produc
 - **Fast local decoding:** bundled ZXing-C++/WebAssembly in a background worker, with alternative decoders for different devices.
 - **Scan feedback:** a locally generated checkout-style beep, a green scan line during the 1.2-second successful-add cooldown, and a recent-product feed with quantity controls.
 - **Comfortable editing:** stable rows and scroll position; four seconds to undo a last-quantity removal with the plus button, followed by a smooth collapse.
+- **Struck-through products:** products struck through in the Appie app (for example while shopping in store) are shown struck through and dimmed, in their usual position.
 - **Automation support:** sensors, a read-only native To-do list, and actions for search, lookup, quantities and refresh.
 - **Account synchronisation:** configurable polling and protected recent writes to reduce stale refresh conflicts.
 
@@ -186,7 +187,7 @@ Entity IDs depend on Home Assistant naming and existing installations; use the i
 | Albert Heijn Shopping Bonus Savings | List-only Bonus savings; zero is correct if the list has no supported discounted products. |
 | Albert Heijn Next Order | Next scheduled order quantity; products, delivery slot, status, cut-off and price attributes. |
 | Albert Heijn Next Order Bonus Savings | Calculated savings belonging to the order, separate from the list. |
-| Albert Heijn Shopping Cart To-do | Read-only native Home Assistant To-do representation. Edit products through the custom card or integration actions. |
+| Albert Heijn Shopping Cart To-do | Read-only native Home Assistant To-do representation; products struck through in the Appie app are shown as completed. Edit products through the custom card or integration actions. |
 
 ### Actions
 

@@ -1,4 +1,7 @@
-"""Read-only native Home Assistant To-do representation of the AH shopping list."""
+"""Read-only native Home Assistant To-do representation of the AH shopping list.
+
+Items that are struck through in the Appie app are reported as completed.
+"""
 from __future__ import annotations
 
 from homeassistant.components.todo import TodoItem, TodoItemStatus, TodoListEntity
@@ -42,7 +45,11 @@ class AhShoppingTodo(AhShoppingEntity, TodoListEntity):
                     uid=item.item_id,
                     summary=item.title,
                     description=" · ".join(details),
-                    status=TodoItemStatus.NEEDS_ACTION,
+                    status=(
+                        TodoItemStatus.COMPLETED
+                        if item.checked
+                        else TodoItemStatus.NEEDS_ACTION
+                    ),
                 )
             )
         return result

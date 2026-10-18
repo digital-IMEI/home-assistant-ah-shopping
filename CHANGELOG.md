@@ -2,6 +2,11 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
+### Unreleased
+
+- Shows products that are struck through in the Appie app struck through and dimmed in the card. Row order, quantities and editing are unchanged.
+- Reports struck-through products as completed in the read-only To-do list instead of always needing action.
+
 ### 0.2.29
 
 - Mirrors the front-camera preview so left/right movement feels natural. Rear-camera preview keeps its normal orientation.
