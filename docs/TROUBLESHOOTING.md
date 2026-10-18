@@ -76,6 +76,14 @@ A last-quantity deletion stays at zero for four seconds so plus can restore it. 
 
 If an error restores a row, the deletion was not accepted. Do not retry repeatedly without checking the error. Report the source view, pending_changes, last_synced and steps to reproduce.
 
+## Struck-through products
+
+Products struck through in the Appie app are shown struck through and dimmed; they still count towards the list quantity, total and Bonus savings until they are removed.
+
+- **Doorgestreepte producten terugzetten** and **Doorgestreepte producten verwijderen** only appear when at least one product on Mijn lijst is struck through.
+- Removal asks for confirmation and is sent to AH immediately; unlike a single last-quantity removal there is no four-second undo.
+- If an error appears, products processed before the error keep their new state. Refresh and check the list before retrying.
+
 ## Debug logging
 
 If needed, temporarily enable:
