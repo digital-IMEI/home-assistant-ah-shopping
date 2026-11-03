@@ -5,7 +5,9 @@ Historical entries describe the behaviour of that version; the [README](README.m
 ### Unreleased
 
 - Adds `fill_screen` to the card: it takes the height of the screen below the header, on phones and desktops, so more products fit before the list scrolls. The default keeps the fixed grid height.
-- Shows the BONUS label in AH Bonus orange instead of green, so it matches the Appie app. Themes can override it with `--ah-bonus-color`.
+- Shows each product as name, offer and then offer price, original price and unit size, in the same row height. The offer is orange text (AH Bonus orange, `--ah-bonus-color`) without the BONUS badge, so it matches the Appie app.
+- Puts product photos on a light-blue tile, as in the Appie app (`--ah-image-background`).
+- Swipe a product left or right to remove it, with the usual 4-second undo. On touch screens the × is hidden; with a mouse it stays. On phones the quantity buttons stay next to the product.
 
 ### 0.2.29
 

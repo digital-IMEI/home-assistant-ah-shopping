@@ -23,6 +23,7 @@ A custom integration with a bundled dashboard card for AH **Mijn lijst**, produc
 - **Camera barcode scanner:** on-demand, automatically active on entering a dashboard, or a permanent feed.
 - **Fast local decoding:** bundled ZXing-C++/WebAssembly in a background worker, with alternative decoders for different devices.
 - **Scan feedback:** a locally generated checkout-style beep, a green scan line during the 1.2-second successful-add cooldown, and a recent-product feed with quantity controls.
+- **Swipe to remove:** swipe a product sideways to remove it (the × stays for mouse users).
 - **Comfortable editing:** stable rows and scroll position; four seconds to undo a last-quantity removal with the plus button, followed by a smooth collapse.
 - **Automation support:** sensors, a read-only native To-do list, and actions for search, lookup, quantities and refresh.
 - **Account synchronisation:** configurable polling and protected recent writes to reduce stale refresh conflicts.

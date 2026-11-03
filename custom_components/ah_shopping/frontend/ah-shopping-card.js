@@ -426,6 +426,57 @@ class AhShoppingCard extends HTMLElement {
       : null;
   }
 
+  _bindSwipe(){
+    // Swipe an editable row sideways to remove it; it then gets the usual 4-second undo.
+    const list=this.shadowRoot?.querySelector('.items');
+    if(!list||list._ahSwipeBound)return;
+    list._ahSwipeBound=true;
+    let swipe=null;
+    const settle=(row,dx=0)=>{
+      row.style.transition='transform .18s ease, opacity .18s ease';
+      row.style.transform=dx?`translateX(${dx}px)`:'';
+      row.style.opacity=dx?'0':'';
+      setTimeout(()=>{row.style.transition='';if(dx){row.style.transform='';row.style.opacity='';}},200);
+    };
+    list.addEventListener('pointerdown',e=>{
+      if(e.pointerType==='mouse'&&e.button!==0)return;
+      if(e.target.closest('button'))return;
+      const row=e.target.closest('[data-row-key]');
+      const trash=row?.querySelector('[data-remove]');
+      if(!row||!trash||row.classList.contains('rowUndo'))return;
+      swipe={row,trash,id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,active:false};
+    });
+    list.addEventListener('pointermove',e=>{
+      if(!swipe||e.pointerId!==swipe.id)return;
+      const dx=e.clientX-swipe.x,dy=e.clientY-swipe.y;
+      if(!swipe.active){
+        if(Math.abs(dy)>10&&Math.abs(dy)>Math.abs(dx)){swipe=null;return;} // vertical: let the list scroll
+        if(Math.abs(dx)<12)return;
+        swipe.active=true;
+        try{swipe.row.setPointerCapture(e.pointerId);}catch(_e){}
+      }
+      swipe.dx=dx;
+      swipe.row.style.transform=`translateX(${dx}px)`;
+      swipe.row.style.opacity=String(Math.max(.3,1-Math.abs(dx)/(swipe.row.offsetWidth||1)));
+    });
+    list.addEventListener('pointerup',e=>{
+      if(!swipe||e.pointerId!==swipe.id)return;
+      const {row,trash,dx,active}=swipe;
+      swipe=null;
+      if(!active)return;
+      if(Math.abs(dx)>=Math.min(120,(row.offsetWidth||0)*.35)){
+        settle(row,Math.sign(dx)*(row.offsetWidth||200));
+        setTimeout(()=>this._remove(trash.dataset.source,Number(trash.dataset.pid)),180);
+      }else settle(row);
+    });
+    list.addEventListener('pointercancel',e=>{
+      if(!swipe||e.pointerId!==swipe.id)return;
+      const {row}=swipe;
+      swipe=null;
+      settle(row);
+    });
+  }
+
   _restoreListScroll(){
     const list=this.shadowRoot?.querySelector('.items');
     if(!list)return;
@@ -533,6 +584,7 @@ class AhShoppingCard extends HTMLElement {
 
 
     this._restoreListScroll();
+    this._bindSwipe();
 
     if(scannerActive){
       this._scanner=this.shadowRoot.querySelector('#inlineScanner');
@@ -592,13 +644,23 @@ class AhShoppingCard extends HTMLElement {
     </div>`;
   }
 
+  _metaLines(i,extra=''){
+    // Line 2: the offer; line 3: offer price, original price, unit size. Without an offer the row keeps two lines.
+    const price=i.price_now?`<span class="price">${this._money(i.price_now)}</span>`:'';
+    const was=i.is_bonus&&i.price_was>i.price_now?`<s class="priceWas">${this._money(i.price_was)}</s>`:'';
+    const unit=i.unit_size?`<span class="unitSize">${this._esc(i.unit_size)}</span>`:'';
+    const bonus=i.is_bonus?`<div class="metaBonus"><span class="bonus">${this._esc(i.bonus_mechanism||'Bonus')}</span></div>`:'';
+    const line=[price,was,unit,extra].filter(Boolean).join('');
+    return `${bonus}${line?`<div class="metaLine">${line}</div>`:''}`;
+  }
   _productRow(i,{controls='',compact=false,rowClass='',style='',metaHtml=null,rowKey=''}={}){
+    // Light-blue tile behind the photo, as in the Appie app; the photo's white background blends into it.
     const image=i.image_url
-      ? `<img src="${this._esc(i.image_url)}" alt="">`
+      ? `<span class="thumb"><img src="${this._esc(i.image_url)}" alt=""></span>`
       : '<div class="ph">🛒</div>';
     const old=i.is_bonus&&i.price_was>i.price_now?`<s>${this._money(i.price_was)}</s> `:'';
     const price=i.price_now?`<span class="price">${old}${this._money(i.price_now)}</span>`:'';
-    const bonus=i.is_bonus?`<span class="bonus">BONUS · ${this._esc(i.bonus_mechanism||'Aanbieding')}</span>`:'';
+    const bonus=i.is_bonus?`<span class="bonus">${this._esc(i.bonus_mechanism||'Bonus')}</span>`:'';
     const details=metaHtml!==null
       ? `<div class="compactMeta">${metaHtml}</div>`
       : `<small>${this._esc(i.unit_size||'')}</small>${price}${bonus}`;
@@ -621,25 +683,17 @@ class AhShoppingCard extends HTMLElement {
       const orderQty=Number(i.order_quantity||0);
       const shoppingQty=pendingQty;
       const totalQty=orderQty+shoppingQty;
-      const old=i.is_bonus&&i.price_was>i.price_now?`<s>${this._money(i.price_was)}</s> `:'';
-      const price=i.price_now?`<span class="price">${old}${this._money(i.price_now)}</span>`:'';
-      const bonus=i.is_bonus?`<span class="bonus">BONUS · ${this._esc(i.bonus_mechanism||'Aanbieding')}</span>`:'';
       const breakdown=orderQty>0
         ? `${orderQty} besteld${shoppingQty>0?` · ${shoppingQty} extra`:''}`
         : `${shoppingQty} in winkelmandje`;
-      const unit=i.unit_size?`<span class="unitSize">${this._esc(i.unit_size)}</span>`:'';
-      const meta=[unit,price,`<span class="combinedBreakdown">${this._esc(breakdown)}</span>`,bonus].filter(Boolean).join('');
+      const meta=this._metaLines(i,`<span class="combinedBreakdown">${this._esc(breakdown)}</span>`);
       const controls=i.product_id>0
         ? `<div class="qty compactQty combinedQty">${shoppingQty>0?`<button data-minus data-source="${editSource}" data-pid="${i.product_id}" data-qty="${shoppingQty}" aria-label="Verlaag totaal">−</button>`:''}<span title="${orderQty} besteld + ${shoppingQty} winkelmandje">${totalQty}</span><button data-plus data-source="${editSource}" data-pid="${i.product_id}" data-qty="${shoppingQty}" aria-label="Voeg toe aan winkelmandje">+</button></div>`
         : `<div class="qty readonlyQty"><span>${totalQty}×</span></div>`;
       return this._productRow(i,{controls,compact:true,metaHtml:meta,rowKey:this._rowDomKey(i),rowClass,style:rowStyle});
     }
 
-    const old=i.is_bonus&&i.price_was>i.price_now?`<s>${this._money(i.price_was)}</s> `:'';
-    const price=i.price_now?`<span class="price">${old}${this._money(i.price_now)}</span>`:'';
-    const unit=i.unit_size?`<span class="unitSize">${this._esc(i.unit_size)}</span>`:'';
-    const bonus=i.is_bonus?`<span class="bonus">BONUS · ${this._esc(i.bonus_mechanism||'Aanbieding')}</span>`:'';
-    const meta=[unit,price,bonus].filter(Boolean).join('');
+    const meta=this._metaLines(i);
     const controls=editSource&&i.product_id>0
       ? `<div class="qty compactQty"><button data-minus data-source="${editSource}" data-pid="${i.product_id}" data-qty="${displayQty}" ${displayQty<=0?'disabled':''}>−</button><span>${displayQty}</span><button data-plus data-source="${editSource}" data-pid="${i.product_id}" data-qty="${displayQty}">+</button><button class="trash" data-remove data-source="${editSource}" data-pid="${i.product_id}">×</button></div>`
       : `<div class="qty compactQty readonlyQty"><span>${displayQty}×</span></div>`;
@@ -1380,11 +1434,7 @@ class AhShoppingCard extends HTMLElement {
   _scanOverlayRow(p,index){
     const qty=Math.max(0,Number(p.quantity_on_list??0));
     const opacity=Math.max(.2,1-index*.2);
-    const old=p.is_bonus&&p.price_was>p.price_now?`<s>${this._money(p.price_was)}</s> `:'';
-    const price=p.price_now?`<span class="price">${old}${this._money(p.price_now)}</span>`:'';
-    const bonus=p.is_bonus?`<span class="bonus">BONUS · ${this._esc(p.bonus_mechanism||'Aanbieding')}</span>`:'';
-    const unit=p.unit_size?`<span class="unitSize">${this._esc(p.unit_size)}</span>`:'';
-    const meta=[unit,price,bonus].filter(Boolean).join('');
+    const meta=this._metaLines(p);
     const controls=Number(p.id||0)>0
       ? `<div class="qty compactQty">${qty>0?`<button data-scan-minus data-pid="${p.id}" aria-label="Verlaag aantal">−</button>`:''}<span>${qty}</span><button data-scan-plus data-pid="${p.id}" aria-label="Voeg toe">+</button></div>`
       : `<div class="qty readonlyQty"><span>${qty}×</span></div>`;
@@ -1602,7 +1652,7 @@ class AhShoppingCard extends HTMLElement {
     this._clearScanSession();
   }
 
-  _css(){return `${this._config.fill_screen===true?':host{display:block;height:calc(100dvh - var(--header-height, 56px) - 32px - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));min-height:360px;overflow:hidden}':':host{display:block;height:100%;min-height:0;overflow:hidden}'}ha-card{height:100%;min-height:0;overflow:hidden;box-sizing:border-box}.fullCard{height:100%;min-height:0;display:flex;flex-direction:column}.fullCard .head,.fullCard .scanArea{flex:0 0 auto}.fullCard .items{overflow-anchor:none;flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch}.scanArea{padding:12px 14px}.head+.scanArea{padding-top:0}.scanWide{display:block;width:100%;margin:0;--ha-button-height:48px;font-size:16px}.scanWide::part(base){width:100%;justify-content:center}.head{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(24px,auto) 18px;column-gap:16px;row-gap:5px;align-items:center;padding:18px 18px 12px}.title{grid-column:1;grid-row:1;align-self:center;min-width:0;font-size:20px;font-weight:700;line-height:24px;margin:0}.total{grid-column:2;grid-row:1;align-self:center;text-align:right;font-size:21px;font-weight:700;line-height:24px;margin:0}.sub,small{display:block;color:var(--secondary-text-color);font-size:12px}.headerSub,.headerMeta{display:block;align-self:baseline;min-width:0;margin:0;font-size:12px;font-weight:400;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.headerSub{grid-column:1;grid-row:2}.headerMeta{grid-column:2;grid-row:2;text-align:right;color:var(--secondary-text-color)}button{border:0;border-radius:10px;padding:9px 12px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:14px}.primary{background:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}.items{padding:0 10px 12px}.item{box-sizing:border-box;display:grid;grid-template-columns:54px 1fr auto;gap:10px;align-items:center;padding:10px 8px;border-top:1px solid var(--divider-color)}.item.rowUndo{opacity:.6}.item.rowRemoving{height:0!important;opacity:0!important;padding-top:0!important;padding-bottom:0!important;border-top-width:0;overflow:hidden;pointer-events:none;transition:height .32s ease,padding .32s ease,opacity .25s ease,border-top-width .32s ease;box-sizing:border-box}.qty button:disabled{opacity:.35}.item img,.ph{width:50px;height:50px;object-fit:contain;border-radius:8px}.compactItem{grid-template-columns:42px 1fr auto;gap:8px;padding:6px 8px}.compactItem img,.compactItem .ph{width:38px;height:38px}.compactItem .info b{font-size:13px}.compactMeta{display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:2px}.compactMeta .price{font-size:12px;font-weight:650}.unitSize{font-size:11px;color:var(--secondary-text-color);white-space:nowrap}.combinedBreakdown{font-size:10px;color:var(--secondary-text-color);white-space:nowrap}.compactQty button{width:28px;height:28px;font-size:17px}.compactQty span,.readonlyQty span{font-size:12px;min-width:16px}.combinedQty span{font-size:13px;font-weight:700;min-width:22px}.ph{display:grid;place-items:center;background:var(--secondary-background-color)}.info{min-width:0}.info b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.price{font-weight:650;margin-top:3px}.price s{font-weight:400;color:var(--secondary-text-color);font-size:12px}.bonus{display:inline-block;margin-top:4px;padding:2px 5px;border-radius:5px;background:var(--ah-bonus-color,#ff7900);color:white;font-size:10px;font-weight:800}.qty{display:flex;align-items:center;gap:5px}.qty button{width:34px;height:34px;padding:0;font-size:20px}.qty span{min-width:20px;text-align:center;font-weight:700}.qty .trash{margin-left:3px;color:var(--error-color);font-size:17px}.empty{padding:22px;text-align:center;color:var(--secondary-text-color)}.toast{position:fixed;z-index:10001;left:50%;bottom:26px;transform:translateX(-50%);background:#2e7d32;color:white;padding:10px 16px;border-radius:20px;box-shadow:0 4px 16px #0005}.toast.error{background:var(--error-color,#c62828)}.inlineScanner{position:relative;flex:1 1 0;min-height:0;width:100%;overflow:hidden;background:#000}.inlineScanner video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;transform-origin:center center;will-change:transform}.scanGuide{position:absolute;z-index:2;left:5%;right:5%;top:40%;height:20%;border:2px solid #fff;border-radius:10px;box-shadow:0 0 0 9999px #0003;pointer-events:none}.scanGuide:after{content:'';position:absolute;left:7%;right:7%;top:50%;height:2px;background:#f33}.scanRecent{position:absolute;z-index:4;top:10px;left:10px;right:10px;display:flex;flex-direction:column;gap:5px;max-height:78%;overflow:hidden;pointer-events:none}.scanRecent.withClose{right:58px}.scanOverlayItem{pointer-events:auto;background:var(--card-background-color);border:0!important;border-radius:10px;box-shadow:0 2px 10px #0005;animation:scanRowIn .18s ease-out}.scanOverlayItem .compactMeta{min-height:14px}.scanOverlayItem .qty button{background:var(--secondary-background-color)}.scanClose{position:absolute;z-index:6;top:10px;right:10px;width:38px;height:38px;padding:0;border-radius:50%;background:#0009;color:#fff;font-size:24px;line-height:38px;backdrop-filter:blur(4px)}.scanHud{position:absolute;z-index:5;left:10px;right:10px;bottom:10px;display:flex;justify-content:flex-end;align-items:flex-end;gap:8px;pointer-events:none}.scanPill{display:inline-block;max-width:70%;padding:5px 8px;border-radius:999px;background:#0009;color:#fff;font-size:11px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;backdrop-filter:blur(4px)}.scanPill[hidden]{display:none!important}.scanStatus.error{margin-right:auto;max-width:min(72%,560px);padding:9px 12px;border-radius:10px;background:var(--error-color,#c62828);font-size:13px;font-weight:650;white-space:normal;line-height:1.3;box-shadow:0 3px 12px #0007}.scanTimer{max-width:none}.inlineScanner.scanCooldown .scanGuide:after{background:#00a03c}@keyframes scanRowIn{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0)}}@media(prefers-reduced-motion:reduce){.item.rowRemoving{transition:none}}@media(max-width:520px){.item{grid-template-columns:46px 1fr}.scanOverlayItem{grid-template-columns:42px minmax(0,1fr) auto}.scanOverlayItem .qty{grid-column:auto;justify-content:flex-end}.scanOverlayItem img,.scanOverlayItem .ph{width:38px;height:38px}.item{grid-template-columns:46px 1fr}.item img,.ph{width:42px;height:42px}.qty{grid-column:2;justify-content:flex-end}.head{padding:14px}.scanArea{padding-left:14px;padding-right:14px}}`;}
+  _css(){return `${this._config.fill_screen===true?':host{display:block;height:calc(100dvh - var(--header-height, 56px) - 32px - var(--safe-area-inset-top, env(safe-area-inset-top, 0px)) - var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));min-height:360px;overflow:hidden}':':host{display:block;height:100%;min-height:0;overflow:hidden}'}ha-card{height:100%;min-height:0;overflow:hidden;box-sizing:border-box}.fullCard{height:100%;min-height:0;display:flex;flex-direction:column}.fullCard .head,.fullCard .scanArea{flex:0 0 auto}.fullCard .items{overflow-anchor:none;flex:1 1 0;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;touch-action:pan-y;-webkit-overflow-scrolling:touch}.scanArea{padding:12px 14px}.head+.scanArea{padding-top:0}.scanWide{display:block;width:100%;margin:0;--ha-button-height:48px;font-size:16px}.scanWide::part(base){width:100%;justify-content:center}.head{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:minmax(24px,auto) 18px;column-gap:16px;row-gap:5px;align-items:center;padding:18px 18px 12px}.title{grid-column:1;grid-row:1;align-self:center;min-width:0;font-size:20px;font-weight:700;line-height:24px;margin:0}.total{grid-column:2;grid-row:1;align-self:center;text-align:right;font-size:21px;font-weight:700;line-height:24px;margin:0}.sub,small{display:block;color:var(--secondary-text-color);font-size:12px}.headerSub,.headerMeta{display:block;align-self:baseline;min-width:0;margin:0;font-size:12px;font-weight:400;line-height:18px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.headerSub{grid-column:1;grid-row:2}.headerMeta{grid-column:2;grid-row:2;text-align:right;color:var(--secondary-text-color)}button{border:0;border-radius:10px;padding:9px 12px;background:var(--secondary-background-color);color:var(--primary-text-color);font-size:14px}.primary{background:var(--primary-color);color:var(--text-primary-color,#fff);font-weight:600}.items{padding:0 10px 12px}.item{box-sizing:border-box;display:grid;grid-template-columns:54px 1fr auto;gap:10px;align-items:center;padding:10px 8px;border-top:1px solid var(--divider-color)}.item.rowUndo{opacity:.6}.item.rowRemoving{height:0!important;opacity:0!important;padding-top:0!important;padding-bottom:0!important;border-top-width:0;overflow:hidden;pointer-events:none;transition:height .32s ease,padding .32s ease,opacity .25s ease,border-top-width .32s ease;box-sizing:border-box}.qty button:disabled{opacity:.35}.item .thumb,.ph{width:50px;height:50px;border-radius:8px}.thumb{display:block;box-sizing:border-box;padding:3px;background:var(--ah-image-background,#e6f1fb);overflow:hidden}.thumb img{display:block;width:100%;height:100%;object-fit:contain;mix-blend-mode:multiply}.compactItem{grid-template-columns:42px 1fr auto;gap:8px;padding:6px 8px}.compactItem .thumb,.compactItem .ph{width:38px;height:38px}.compactItem .info b{font-size:13px;line-height:16px}.compactMeta{display:block;margin-top:1px}.metaBonus{position:relative;top:-2px;line-height:14px}.metaBonus .bonus{margin-top:0;line-height:14px}.metaLine{display:flex;align-items:baseline;gap:6px;min-width:0;line-height:14px;white-space:nowrap;overflow:hidden}.priceWas{font-size:11px;color:var(--secondary-text-color)}.compactMeta .price{margin-top:0}.compactMeta .price{font-size:12px;font-weight:650}.unitSize{font-size:11px;color:var(--secondary-text-color);white-space:nowrap}.combinedBreakdown{font-size:10px;color:var(--secondary-text-color);white-space:nowrap}.compactQty button{width:28px;height:28px;font-size:17px}.compactQty span,.readonlyQty span{font-size:12px;min-width:16px}.combinedQty span{font-size:13px;font-weight:700;min-width:22px}.ph{display:grid;place-items:center;background:var(--ah-image-background,#e6f1fb)}.info{min-width:0}.info b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.price{font-weight:650;margin-top:3px}.price s{font-weight:400;color:var(--secondary-text-color);font-size:12px}.bonus{display:inline-block;margin-top:4px;color:var(--ah-bonus-color,#ff7900);font-size:11px;font-weight:700}.qty{display:flex;align-items:center;gap:5px}.qty button{width:34px;height:34px;padding:0;font-size:20px}.qty span{min-width:20px;text-align:center;font-weight:700}.qty .trash{margin-left:3px;color:var(--error-color);font-size:17px}@media(hover:none) and (pointer:coarse){.items .qty .trash{display:none}}.empty{padding:22px;text-align:center;color:var(--secondary-text-color)}.toast{position:fixed;z-index:10001;left:50%;bottom:26px;transform:translateX(-50%);background:#2e7d32;color:white;padding:10px 16px;border-radius:20px;box-shadow:0 4px 16px #0005}.toast.error{background:var(--error-color,#c62828)}.inlineScanner{position:relative;flex:1 1 0;min-height:0;width:100%;overflow:hidden;background:#000}.inlineScanner video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center;transform-origin:center center;will-change:transform}.scanGuide{position:absolute;z-index:2;left:5%;right:5%;top:40%;height:20%;border:2px solid #fff;border-radius:10px;box-shadow:0 0 0 9999px #0003;pointer-events:none}.scanGuide:after{content:'';position:absolute;left:7%;right:7%;top:50%;height:2px;background:#f33}.scanRecent{position:absolute;z-index:4;top:10px;left:10px;right:10px;display:flex;flex-direction:column;gap:5px;max-height:78%;overflow:hidden;pointer-events:none}.scanRecent.withClose{right:58px}.scanOverlayItem{pointer-events:auto;background:var(--card-background-color);border:0!important;border-radius:10px;box-shadow:0 2px 10px #0005;animation:scanRowIn .18s ease-out}.scanOverlayItem .compactMeta{min-height:14px}.scanOverlayItem .qty button{background:var(--secondary-background-color)}.scanClose{position:absolute;z-index:6;top:10px;right:10px;width:38px;height:38px;padding:0;border-radius:50%;background:#0009;color:#fff;font-size:24px;line-height:38px;backdrop-filter:blur(4px)}.scanHud{position:absolute;z-index:5;left:10px;right:10px;bottom:10px;display:flex;justify-content:flex-end;align-items:flex-end;gap:8px;pointer-events:none}.scanPill{display:inline-block;max-width:70%;padding:5px 8px;border-radius:999px;background:#0009;color:#fff;font-size:11px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;backdrop-filter:blur(4px)}.scanPill[hidden]{display:none!important}.scanStatus.error{margin-right:auto;max-width:min(72%,560px);padding:9px 12px;border-radius:10px;background:var(--error-color,#c62828);font-size:13px;font-weight:650;white-space:normal;line-height:1.3;box-shadow:0 3px 12px #0007}.scanTimer{max-width:none}.inlineScanner.scanCooldown .scanGuide:after{background:#00a03c}@keyframes scanRowIn{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0)}}@media(prefers-reduced-motion:reduce){.item.rowRemoving{transition:none}}@media(max-width:520px){.item{grid-template-columns:46px 1fr}.scanOverlayItem{grid-template-columns:42px minmax(0,1fr) auto}.scanOverlayItem .qty{grid-column:auto;justify-content:flex-end}.scanOverlayItem .thumb,.scanOverlayItem .ph{width:38px;height:38px}.item{grid-template-columns:46px 1fr}.item .thumb,.ph{width:42px;height:42px}.qty{grid-column:2;justify-content:flex-end}.head{padding:14px}.scanArea{padding-left:14px;padding-right:14px}.compactItem{grid-template-columns:38px minmax(0,1fr) auto}.compactItem .thumb,.compactItem .ph{width:38px;height:38px}.compactItem .qty{grid-column:auto;justify-content:flex-end}}`;}
 }
 if(!customElements.get('ah-shopping-card'))customElements.define('ah-shopping-card',AhShoppingCard);
 window.customCards=window.customCards||[];
