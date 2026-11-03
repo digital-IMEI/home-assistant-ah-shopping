@@ -82,6 +82,9 @@ def test_quantity_update_uses_v2_patch_and_zero_deletes():
 
 def test_current_list_shape_reads_nested_product_and_text_item():
     class ListClient(AhShoppingApiClient):
+        async def async_get_store_route(self):
+            return "", {}
+
         async def async_get_list_payload(self):
             return {
                 "id": "my-list",
@@ -123,6 +126,9 @@ def test_current_list_shape_reads_nested_product_and_text_item():
 
 def test_missing_bulk_product_uses_detail_price_fallback():
     class ListClient(AhShoppingApiClient):
+        async def async_get_store_route(self):
+            return "", {}
+
         async def async_get_list_payload(self):
             return {
                 "id": "my-list",
@@ -338,3 +344,50 @@ def test_next_order_without_fulfillment_is_empty():
     assert order.total_quantity == 0
     assert order.items == ()
 
+
+
+def test_store_route_positions_are_matched_to_list_items():
+    class RouteClient(AhShoppingApiClient):
+        paths = []
+
+        async def _graphql(self, query, variables=None):
+            assert "storesFavouriteStore" in query
+            return {"storesFavouriteStore": {"id": 1501, "name": "Teststad Centrum"}}
+
+        async def _raw_request(self, method, path, **kwargs):
+            self.paths.append(path)
+            store_sorted = "orderBy=store" in path
+            return {"id": "my-list", "items": [
+                {"quantity": 1, "sorting": {"position": 2 if store_sorted else 1},
+                 "productDetails": {"product": {"webshopId": 7, "title": "Yoghurt"}}},
+                {"quantity": 1, "description": "Iets lekkers", "sorting": {"position": 1 if store_sorted else 2}},
+            ]}
+
+        async def async_get_products(self, product_ids):
+            return []
+
+    client = RouteClient(None)
+    data = asyncio.run(client.async_get_shopping_data())
+    assert client.paths[0].endswith("orderBy=store&orderByParam=1501")
+    assert client.paths[1] == SHOPPINGLIST_ITEMS_READ_PATH
+    assert data.store_name == "Teststad Centrum"
+    assert {i.title: i.store_position for i in data.items} == {"Yoghurt": 2, "Iets lekkers": 1}
+    assert data.as_dict()["items"][0]["store_position"] == 2
+    asyncio.run(client.async_get_shopping_data())
+    assert sum("orderBy=store" in path for path in client.paths) == 2
+
+
+def test_list_still_loads_when_store_route_fails():
+    class NoStoreClient(AhShoppingApiClient):
+        async def async_get_store_route(self):
+            raise AhRequestError("no store")
+
+        async def async_get_list_payload(self):
+            return {"id": "my-list", "items": [{"quantity": 1, "description": "Brood"}]}
+
+        async def async_get_products(self, product_ids):
+            return []
+
+    data = asyncio.run(NoStoreClient(None).async_get_shopping_data())
+    assert [i.store_position for i in data.items] == [0]
+    assert data.store_name == ""

@@ -5,6 +5,8 @@ import asyncio
 from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 import json
+import logging
+import time
 from typing import Any
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 
@@ -18,6 +20,11 @@ from .const import (
 )
 from .exceptions import AhAuthError, AhNotFoundError, AhRequestError, AhTransientError
 from .models import NextOrderData, NextOrderItem, Product, ShoppingItem, ShoppingListData
+
+_LOGGER = logging.getLogger(__name__)
+
+FAVOURITE_STORE_QUERY = "query { storesFavouriteStore { id name } }"
+_STORE_CACHE_SECONDS = 6 * 3600
 
 TokenUpdateCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -37,6 +44,7 @@ class AhShoppingApiClient:
         base_url: str = API_BASE_URL,
     ) -> None:
         self._session = session
+        self._favourite_store: tuple[int, str, float] | None = None
         self._access_token = access_token
         self._refresh_token = refresh_token
         self._expires_at = expires_at
@@ -465,7 +473,49 @@ class AhShoppingApiClient:
             product_id=item.product_id,
         )
 
+    async def async_get_favourite_store(self) -> tuple[int, str]:
+        """Return the favourite store chosen in the Appie app (id 0 when none)."""
+        cached = self._favourite_store
+        if cached and time.monotonic() - cached[2] < _STORE_CACHE_SECONDS:
+            return cached[0], cached[1]
+        data = await self._graphql(FAVOURITE_STORE_QUERY)
+        store = data.get("storesFavouriteStore")
+        store_id = int(store.get("id") or 0) if isinstance(store, dict) else 0
+        name = str(store.get("name") or "") if isinstance(store, dict) else ""
+        self._favourite_store = (store_id, name, time.monotonic())
+        return store_id, name
+
+    async def async_get_store_route(self) -> tuple[str, dict[str, int]]:
+        """Return the favourite store's name and each list item's route position.
+
+        AH sorts Mijn lijst along the store's walking route with orderBy=store.
+        Call this before the regular read so that read keeps the list sorted by
+        entry, as before.
+        """
+        store_id, name = await self.async_get_favourite_store()
+        if store_id <= 0:
+            return "", {}
+        data = await self._raw_request(
+            "GET", f"{SHOPPINGLIST_ITEMS_PATH}?{urlencode({'orderBy': 'store', 'orderByParam': store_id})}"
+        )
+        raw_items = data.get("items") if isinstance(data, dict) else None
+        positions: dict[str, int] = {}
+        for index, raw in enumerate(raw_items if isinstance(raw_items, list) else [], start=1):
+            if not isinstance(raw, dict):
+                continue
+            sorting = raw.get("sorting")
+            position = int(sorting.get("position") or index) if isinstance(sorting, dict) else index
+            positions.setdefault(_route_key(raw), position)
+        return name, positions
+
     async def async_get_shopping_data(self) -> ShoppingListData:
+        store_name, route = "", {}
+        try:
+            store_name, route = await self.async_get_store_route()
+        except AhAuthError:
+            raise
+        except (AhNotFoundError, AhRequestError, AhTransientError) as err:
+            _LOGGER.debug("AH store route unavailable: %s", err)
         data = await self.async_get_list_payload()
         raw_items = data.get("items") or []
         if not isinstance(raw_items, list):
@@ -560,6 +610,7 @@ class AhShoppingApiClient:
                     description=description,
                     checked=bool(raw.get("strikedthrough") or raw.get("strikeThrough")),
                     product=product,
+                    store_position=route.get(_route_key(raw), 0),
                 )
             )
 
@@ -569,4 +620,17 @@ class AhShoppingApiClient:
             list_id=str(data.get("id") or "my-list"),
             name="Winkelmandje",
             items=items,
+            store_name=store_name,
         )
+
+
+def _route_key(raw: dict[str, Any]) -> str:
+    """Match an item between the store-sorted and the entry-sorted list."""
+    details = raw.get("productDetails")
+    product = details.get("product") if isinstance(details, dict) else None
+    product_id = int(raw.get("productId") or 0)
+    if not product_id and isinstance(product, dict):
+        product_id = int(product.get("webshopId") or product.get("id") or 0)
+    if product_id > 0:
+        return f"p:{product_id}"
+    return f"t:{str(raw.get('description') or '').strip().casefold()}"

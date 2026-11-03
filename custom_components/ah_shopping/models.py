@@ -100,6 +100,8 @@ class ShoppingItem:
     description: str = ""
     product: Product | None = None
     checked: bool = False
+    # Position in the walking route of the favourite AH store; 0 when unknown.
+    store_position: int = 0
 
     @property
     def is_product(self) -> bool:
@@ -165,6 +167,7 @@ class ShoppingItem:
             "title": self.title,
             "description": self.description,
             "checked": self.checked,
+            "store_position": self.store_position,
             "is_product": self.is_product,
             "line_total": self.line_total,
             "bonus_savings": self.bonus_savings,
@@ -215,6 +218,7 @@ class ShoppingListData:
     list_id: str
     name: str
     items: tuple[ShoppingItem, ...] = field(default_factory=tuple)
+    store_name: str = ""
 
     @property
     def total_quantity(self) -> int:
@@ -310,6 +314,7 @@ class ShoppingListData:
             "subtotal": self.subtotal,
             "bonus_savings": self.bonus_savings,
             "estimated_total": self.estimated_total,
+            "store_name": self.store_name,
             "items": [item.as_dict() for item in self.items],
         }
 

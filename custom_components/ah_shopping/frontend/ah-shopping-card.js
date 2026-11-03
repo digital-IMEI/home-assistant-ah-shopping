@@ -79,7 +79,8 @@ class AhShoppingCard extends HTMLElement {
     {name:'scan_label',selector:{text:{}}},
     {name:'sort',selector:{select:{options:[
       {value:'input',label:'Volgorde van invoer'},
-      {value:'department',label:'Per afdeling'}
+      {value:'department',label:'Per afdeling'},
+      {value:'store',label:'Looproute van mijn winkel'}
     ]}}}
   ]};}
   setConfig(config){
@@ -407,9 +408,18 @@ class AhShoppingCard extends HTMLElement {
     this._qtyWorkers.set(key,worker);
   }
 
+  _storeRows(items,view,row){
+    // Walking route of the favourite store chosen in the Appie app; unknown positions (new items) go last.
+    const pos=i=>Number(i?.store_position||0)||Infinity;
+    const sorted=items.map((item,index)=>({item,index})).sort((a,b)=>pos(a.item)-pos(b.item)||a.index-b.index).map(x=>x.item);
+    const store=(this._entity()?.attributes?.store_name||'').trim();
+    const head=store&&view.edit_source?`<div class="deptHead" data-dept="store">Looproute ${this._esc(store)}</div>`:'';
+    return head+sorted.map(row).join('');
+  }
   _department(item){return String(item?.category||item?.taxonomy||'').trim()||'Overig';}
   _listRows(items,view){
     const row=i=>this._item(i,view.edit_source||null,view.combined===true);
+    if(this._config.sort==='store')return this._storeRows(items,view,row);
     if(this._config.sort!=='department')return items.map(row).join('');
     const groups=new Map();
     for(const item of items){
