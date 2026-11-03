@@ -59,10 +59,24 @@ const assert=require('node:assert/strict'),path=require('node:path');
    card.shadowRoot.querySelector('#searchClose')?.click();card._closeSearch();
    release({products:[{id:9,title:'Melk'}]});await settle();
    const staleIgnored=!card.shadowRoot.querySelector('.searchResults')&&card.shadowRoot.querySelector('#searchGo').disabled===false;
+
+   const wait=ms=>new Promise(r=>setTimeout(r,ms));
+   const typed=text=>{input().value=text;input().dispatchEvent(new Event('input'));};
+   const auto=[];card._service=async(name,data)=>{auto.push(data.query);return {products:[{id:3,title:'Jonge kaas'}]};};
+   input().focus();typed('k');await wait(900);
+   const oneLetterWaits=auto.length===0;
+   typed('ka');await wait(300);typed('kaa');await wait(300);typed('kaas');
+   const notWhileTyping=auto.length===0;
+   await wait(900);await settle();
+   const searchedAfterPause=auto.join(',')==='kaas'&&rows()==='s:3'&&document.activeElement===card&&card.shadowRoot.activeElement===input();
+   typed('kaas ');await wait(900);
+   const sameQueryNotRepeated=auto.length===1;
+   typed('');await settle();
+   const clearedCloses=!card.shadowRoot.querySelector('.searchResults');
    card.remove();
-   return {hiddenByDefault,tooShortRejected,searched,resultsShown,marksOnList,inputKept,added,listUpdated,clearedAfterAdd,addedOnTop,errorReported,emptyMessage,closed,busyDisabled,staleIgnored};
+   return {oneLetterWaits,notWhileTyping,searchedAfterPause,sameQueryNotRepeated,clearedCloses,hiddenByDefault,tooShortRejected,searched,resultsShown,marksOnList,inputKept,added,listUpdated,clearedAfterAdd,addedOnTop,errorReported,emptyMessage,closed,busyDisabled,staleIgnored};
   });
   for(const [key,value] of Object.entries(result))assert.equal(value,true,key);
-  console.log('PASS: optional search field, results with list quantity and Bonus, add and clear, errors, empty result, close and stale responses');
+  console.log('PASS: optional search field, results with list quantity and Bonus, add and clear, errors, empty result, close, stale responses and automatic search after a typing pause');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

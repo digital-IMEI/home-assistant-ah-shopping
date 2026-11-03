@@ -1,5 +1,6 @@
 const SCAN_COOLDOWN_MS=1200;
 const REMOVAL_UNDO_MS=4000;
+const SEARCH_DELAY_MS=800; // search automatically after this pause in typing
 const REMOVAL_ANIMATION_MS=320;
 const SCAN_FEED_TOP_MS=10000;
 const SCAN_FEED_DIMMED_MS=5000;
@@ -404,7 +405,7 @@ class AhShoppingCard extends HTMLElement {
 
   _searchArea(view){
     const busy=this._searchBusy?' disabled':'';
-    const form=`<form id="searchForm" class="searchArea" role="search"><input id="searchInput" type="search" enterkeyhint="search" autocomplete="off" placeholder="Product zoeken" aria-label="Product zoeken" value="${this._esc(this._searchQuery)}"><button id="searchGo" type="submit"${busy}>${this._searchBusy?'Zoeken…':'Zoeken'}</button></form>`;
+    const form=`<form id="searchForm" class="searchArea" role="search"><input id="searchInput" type="search" enterkeyhint="search" autocomplete="off" placeholder="Voeg iets toe aan je lijstje" aria-label="Voeg iets toe aan je lijstje" value="${this._esc(this._searchQuery)}"><button id="searchGo" type="submit"${busy}>${this._searchBusy?'Zoeken…':'Zoeken'}</button></form>`;
     if(!this._searchResults)return form;
     const onList=new Map((view.items||[]).map(i=>[Number(i.product_id||0),Number(i.quantity||0)]));
     const rows=this._searchResults.map(p=>{
@@ -423,7 +424,19 @@ class AhShoppingCard extends HTMLElement {
     const summary=count?`${count} ${count===1?'resultaat':'resultaten'} voor “${this._esc(this._searchShown)}”`:`Geen producten gevonden voor “${this._esc(this._searchShown)}”.`;
     return `${form}<div class="searchResults"><div class="searchSummary"><span>${summary}</span><button id="searchClose" aria-label="Zoekresultaten sluiten">×</button></div>${rows}</div>`;
   }
+  _queueSearch(){
+    clearTimeout(this._searchTimer);
+    const query=String(this._searchQuery||'').trim();
+    if(!query){if(this._searchResults||this._searchBusy)this._closeSearch();return;}
+    if(query.length<2)return;
+    this._searchTimer=setTimeout(()=>{
+      if(String(this._searchQuery||'').trim()!==query)return;
+      if(this._searchResults&&this._searchShown===query)return;
+      this._runSearch();
+    },SEARCH_DELAY_MS);
+  }
   async _runSearch(){
+    clearTimeout(this._searchTimer);
     const query=String(this._searchQuery||'').trim();
     if(query.length<2){this._toast('Typ minstens 2 letters',true);return;}
     const seq=++this._searchSeq;
@@ -452,6 +465,7 @@ class AhShoppingCard extends HTMLElement {
     }
   }
   _closeSearch(){
+    clearTimeout(this._searchTimer);
     this._searchSeq++;
     this._searchBusy=false;this._searchResults=null;this._searchQuery='';this._searchShown='';
     const input=this.shadowRoot?.querySelector('#searchInput');
@@ -590,7 +604,7 @@ class AhShoppingCard extends HTMLElement {
     const searchForm=this.shadowRoot.querySelector('#searchForm');
     if(searchForm)searchForm.onsubmit=e=>{e.preventDefault();this._runSearch();};
     const searchInput=this.shadowRoot.querySelector('#searchInput');
-    if(searchInput)searchInput.oninput=()=>{this._searchQuery=searchInput.value;};
+    if(searchInput)searchInput.oninput=()=>{this._searchQuery=searchInput.value;this._queueSearch();};
     const searchClose=this.shadowRoot.querySelector('#searchClose');
     if(searchClose)searchClose.onclick=()=>this._closeSearch();
     this.shadowRoot.querySelectorAll('[data-search-add]').forEach(el=>el.onclick=()=>this._searchAdd(Number(el.dataset.pid)));
