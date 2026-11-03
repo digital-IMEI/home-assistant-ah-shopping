@@ -5,6 +5,7 @@ Historical entries describe the behaviour of that version; the [README](README.m
 ### Unreleased
 
 - Adds `fill_screen` to the card: it takes the height of the screen below the header, on phones and desktops, so more products fit before the list scrolls. The default keeps the fixed grid height.
+- Shows the BONUS label in AH Bonus orange instead of green, so it matches the Appie app. Themes can override it with `--ah-bonus-color`.
 
 ### 0.2.29
 
