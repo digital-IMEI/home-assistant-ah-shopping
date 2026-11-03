@@ -62,9 +62,10 @@ Overlay expiry is separate: newest product 10 seconds; five seconds after becomi
 
 First distinguish **Mijn lijst**, **next order** and the **combined** view. Their totals and savings represent different product sets.
 
+- For **Mijn lijst**, check the sensor attribute `price_source`. `ah` means the total and Bonus come from AH's own calculation (`totalPrice`), the same as the Appie app. `ah_pending` means a change is being priced right now. `ah_adjusted` and `estimate` mean AH could not price the list, so the local calculation below is used.
 - The list savings sensor does not include order savings; use the separate Next Order Bonus Savings sensor.
 - The order card uses calculated product totals, not necessarily AH's final checkout amount.
-- Check quantities, current/previous prices, promotion text, supported mixed-product groups and the order cut-off.
+- With `estimate`, or for the next order: check quantities, current/previous prices, promotion text, supported mixed-product groups and the order cut-off.
 - Unit discounts already embedded in the current price are not subtracted twice.
 - Delivery charges, deposits, substitutions and unsupported/personalised deals may differ.
 
