@@ -141,6 +141,7 @@ Most settings are available in the visual card editor. `entity` is an optional Y
 | `show_header` | `true` | Show title, count, total, Bonus savings and delivery information where available. |
 | `show_scan` | `true` | Show the scan button when the scanner is closed. Does not disable permanent/start-active modes. |
 | `show_products` | `true` | Show ordinary list rows when the scanner is closed. |
+| `fill_screen` | `false` | Make the card as tall as the screen below the header (phone and desktop), so more products fit before the list scrolls. Leave `grid_options.rows` unset so the dashboard follows the card's height. |
 | `scanner_mode` | `button` | `button`: on-demand; `button_auto`: start active on each dashboard visit; `permanent`: visible camera feed. |
 | `scan_camera` | `front` | `front` or `rear`; browser chooses the matching available camera. |
 | `scan_zoom` | `2` | 1×–4×; editor steps of 0.25. Hardware zoom when available, otherwise a digital crop. |

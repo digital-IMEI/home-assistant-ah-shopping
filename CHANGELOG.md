@@ -2,6 +2,10 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
+### Unreleased
+
+- Adds `fill_screen` to the card: it takes the height of the screen below the header, on phones and desktops, so more products fit before the list scrolls. The default keeps the fixed grid height.
+
 ### 0.2.29
 
 - Mirrors the front-camera preview so left/right movement feels natural. Rear-camera preview keeps its normal orientation.
