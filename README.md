@@ -20,6 +20,7 @@ A custom integration with a bundled dashboard card for AH **Mijn lijst**, produc
 - **Product details:** images, unit sizes, current prices, previous prices and Bonus labels.
 - **Scheduled order:** read-only products, quantities and delivery date/time.
 - **Combined overview:** merge identical products from the list and the next order, while keeping ordered and extra quantities separate.
+- **Product search:** optionally search AH products from the card and add them to Mijn lijst.
 - **Camera barcode scanner:** on-demand, automatically active on entering a dashboard, or a permanent feed.
 - **Fast local decoding:** bundled ZXing-C++/WebAssembly in a background worker, with alternative decoders for different devices.
 - **Scan feedback:** a locally generated checkout-style beep, a green scan line during the 1.2-second successful-add cooldown, and a recent-product feed with quantity controls.
@@ -141,6 +142,7 @@ Most settings are available in the visual card editor. `entity` is an optional Y
 | `show_header` | `true` | Show title, count, total, Bonus savings and delivery information where available. |
 | `show_scan` | `true` | Show the scan button when the scanner is closed. Does not disable permanent/start-active modes. |
 | `show_products` | `true` | Show ordinary list rows when the scanner is closed. |
+| `show_search` | `false` | Show a search field below the scan button. Results show image, price, Bonus and the quantity already on the list; **+** adds one to Mijn lijst. |
 | `scanner_mode` | `button` | `button`: on-demand; `button_auto`: start active on each dashboard visit; `permanent`: visible camera feed. |
 | `scan_camera` | `front` | `front` or `rear`; browser chooses the matching available camera. |
 | `scan_zoom` | `2` | 1×–4×; editor steps of 0.25. Hardware zoom when available, otherwise a digital crop. |
