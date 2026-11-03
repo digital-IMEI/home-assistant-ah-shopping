@@ -4,7 +4,7 @@ Historical entries describe the behaviour of that version; the [README](README.m
 
 ### Unreleased
 
-- Adds an optional search field to the card (`show_search: true`). Results show image, unit size, price, Bonus and the quantity already on the list; **+** adds the product to Mijn lijst through the existing `ah_shopping.search_products` and `ah_shopping.add_product` actions.
+- Adds an optional search field to the card (`show_search: true`). Results show image, unit size, price, Bonus and the quantity already on the list; **+** adds the product to Mijn lijst and clears the search, through the existing `ah_shopping.search_products` and `ah_shopping.add_product` actions.
 
 ### 0.2.29
 

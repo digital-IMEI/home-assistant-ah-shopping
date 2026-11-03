@@ -38,12 +38,13 @@ const assert=require('node:assert/strict'),path=require('node:path');
 
    card.shadowRoot.querySelector('[data-search-add][data-pid="1"]').click();await settle();
    const added=calls[1][0]==='add_product'&&calls[1][1].product_id===1&&calls[1][1].quantity===1&&card._message==='Rode ui toegevoegd';
-   const listUpdated=card.shadowRoot.querySelector('.items [data-row-key="p:1"]')!==null&&rows()==='s:1,s:2';
+   const listUpdated=card.shadowRoot.querySelector('.items [data-row-key="p:1"]')!==null;
+   const clearedAfterAdd=!card.shadowRoot.querySelector('.searchResults')&&input().value===''&&card._searchQuery==='';
    const addedOnTop=card.shadowRoot.querySelector('.items [data-row-key]').dataset.rowKey==='p:1';
 
    card._service=async()=>{throw new Error('simulated AH failure');};
    await submit('kaas');
-   const errorReported=card._messageError===true&&card._message==='simulated AH failure'&&!card._searchBusy&&rows()==='s:1,s:2';
+   const errorReported=card._messageError===true&&card._message==='simulated AH failure'&&!card._searchBusy&&rows()==='';
 
    card._service=async()=>({products:[]});
    await submit('xyz');
@@ -59,9 +60,9 @@ const assert=require('node:assert/strict'),path=require('node:path');
    release({products:[{id:9,title:'Melk'}]});await settle();
    const staleIgnored=!card.shadowRoot.querySelector('.searchResults')&&card.shadowRoot.querySelector('#searchGo').disabled===false;
    card.remove();
-   return {hiddenByDefault,tooShortRejected,searched,resultsShown,marksOnList,inputKept,added,listUpdated,addedOnTop,errorReported,emptyMessage,closed,busyDisabled,staleIgnored};
+   return {hiddenByDefault,tooShortRejected,searched,resultsShown,marksOnList,inputKept,added,listUpdated,clearedAfterAdd,addedOnTop,errorReported,emptyMessage,closed,busyDisabled,staleIgnored};
   });
   for(const [key,value] of Object.entries(result))assert.equal(value,true,key);
-  console.log('PASS: optional search field, results with list quantity and Bonus, add, errors, empty result, close and stale responses');
+  console.log('PASS: optional search field, results with list quantity and Bonus, add and clear, errors, empty result, close and stale responses');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

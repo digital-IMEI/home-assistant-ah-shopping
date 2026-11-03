@@ -142,7 +142,7 @@ Most settings are available in the visual card editor. `entity` is an optional Y
 | `show_header` | `true` | Show title, count, total, Bonus savings and delivery information where available. |
 | `show_scan` | `true` | Show the scan button when the scanner is closed. Does not disable permanent/start-active modes. |
 | `show_products` | `true` | Show ordinary list rows when the scanner is closed. |
-| `show_search` | `false` | Show a search field below the scan button. Results show image, price, Bonus and the quantity already on the list; **+** adds one to Mijn lijst. |
+| `show_search` | `false` | Show a search field below the scan button. Results show image, price, Bonus and the quantity already on the list; **+** adds one to Mijn lijst and clears the search. |
 | `scanner_mode` | `button` | `button`: on-demand; `button_auto`: start active on each dashboard visit; `permanent`: visible camera feed. |
 | `scan_camera` | `front` | `front` or `rear`; browser chooses the matching available camera. |
 | `scan_zoom` | `2` | 1×–4×; editor steps of 0.25. Hardware zoom when available, otherwise a digital crop. |
