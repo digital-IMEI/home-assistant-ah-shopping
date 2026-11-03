@@ -3,8 +3,10 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+from dataclasses import replace
 from datetime import datetime, timezone
 import json
+import logging
 from typing import Any
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 
@@ -17,7 +19,14 @@ from .const import (
     TOKEN_REFRESH_MARGIN, USER_AGENT,
 )
 from .exceptions import AhAuthError, AhNotFoundError, AhRequestError, AhTransientError
-from .models import NextOrderData, NextOrderItem, Product, ShoppingItem, ShoppingListData
+from .models import NextOrderData, NextOrderItem, Product, ShoppingItem, ShoppingListData, _float
+
+_LOGGER = logging.getLogger(__name__)
+
+TOTAL_PRICE_QUERY = (
+    "query FetchTotalPrice($products: [PriceLineItem!]!) { totalPrice(products: $products) "
+    "{ withoutDiscount { amount } discount { amount } } }"
+)
 
 TokenUpdateCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
@@ -343,6 +352,21 @@ class AhShoppingApiClient:
         items = data.get("items") or []
         return items if isinstance(items, list) else []
 
+    async def async_get_total_price(self, lines: list[tuple[int, int]]) -> tuple[float, float]:
+        """Return AH's price before discount and its Bonus discount for these lines.
+
+        AH applies every promotion itself, including offers that combine
+        different products of one Bonus segment, so this matches the Appie app.
+        """
+        data = await self._graphql(
+            TOTAL_PRICE_QUERY,
+            {"products": [{"id": int(pid), "quantity": int(qty)} for pid, qty in lines]},
+        )
+        total = data.get("totalPrice")
+        if not isinstance(total, dict):
+            raise AhTransientError("AH returned no total price")
+        return _float(total.get("withoutDiscount")), _float(total.get("discount"))
+
     async def async_get_products(self, product_ids: list[int]) -> list[Product]:
         if not product_ids:
             return []
@@ -565,8 +589,21 @@ class AhShoppingApiClient:
 
         items = tuple(parsed_items)
 
-        return ShoppingListData(
+        result = ShoppingListData(
             list_id=str(data.get("id") or "my-list"),
             name="Winkelmandje",
             items=items,
         )
+        signature = result.price_signature()
+        if signature:
+            try:
+                before, discount = await self.async_get_total_price(list(signature))
+            except AhAuthError:
+                raise
+            except (AhNotFoundError, AhRequestError, AhTransientError) as err:
+                # Keep the local estimate when AH cannot price the list.
+                _LOGGER.debug("AH total price unavailable: %s", err)
+            else:
+                if before > 0:
+                    result = replace(result, ah_price=(signature, before, discount))
+        return result

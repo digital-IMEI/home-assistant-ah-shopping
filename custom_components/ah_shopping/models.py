@@ -212,21 +212,48 @@ class ShoppingListData:
     list_id: str
     name: str
     items: tuple[ShoppingItem, ...] = field(default_factory=tuple)
+    # AH's own price for exactly these product quantities: (signature, before discount, discount).
+    ah_price: tuple[tuple[tuple[int, int], ...], float, float] | None = None
 
     @property
     def total_quantity(self) -> int:
         return sum(max(item.quantity, 0) for item in self.items)
 
+    def price_signature(self) -> tuple[tuple[int, int], ...]:
+        """Product quantities that AH's totalPrice was (or would be) asked for."""
+        return tuple(sorted(
+            (item.product_id, item.quantity)
+            for item in self.items
+            if item.product_id > 0 and item.quantity > 0
+        ))
+
+    @property
+    def _ah_totals(self) -> tuple[float, float] | None:
+        """AH's price, unless a local edit has changed the list since it was fetched."""
+        if self.ah_price and self.ah_price[0] == self.price_signature():
+            return self.ah_price[1], self.ah_price[2]
+        return None
+
+    @property
+    def price_source(self) -> str:
+        return "ah" if self._ah_totals else "estimate"
+
     @property
     def subtotal(self) -> float:
+        if ah := self._ah_totals:
+            return round(ah[0], 2)
         return round(sum(item.line_total for item in self.items), 2)
 
     @property
     def bonus_savings(self) -> float:
+        if ah := self._ah_totals:
+            return round(ah[1], 2)
         return round(sum(_promotion_totals(self.items)), 2)
 
     @property
     def estimated_total(self) -> float:
+        if ah := self._ah_totals:
+            return round(ah[0] - ah[1], 2)
         return round(self.subtotal - _promotion_totals(self.items)[1], 2)
 
     def quantity_for_product(self, product_id: int) -> int:
@@ -307,6 +334,7 @@ class ShoppingListData:
             "subtotal": self.subtotal,
             "bonus_savings": self.bonus_savings,
             "estimated_total": self.estimated_total,
+            "price_source": self.price_source,
             "items": [item.as_dict() for item in self.items],
         }
 

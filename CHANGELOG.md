@@ -2,6 +2,10 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
+### Unreleased
+
+- Uses Albert Heijn's own price calculation (`totalPrice`) for the shopping-list subtotal, Bonus savings and total, so they match the Appie app, including promotions that combine different products of one Bonus segment (#4). The local calculation remains the fallback; the new `price_source` attribute says which one is shown.
+
 ### 0.2.29
 
 - Mirrors the front-camera preview so left/right movement feels natural. Rear-camera preview keeps its normal orientation.
