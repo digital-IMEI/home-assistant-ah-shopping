@@ -55,10 +55,10 @@ const assert=require('node:assert/strict'),path=require('node:path');
 
    let release;card._service=()=>new Promise(r=>{release=r;});
    await submit('melk');
-   const busyDisabled=card.shadowRoot.querySelector('#searchGo').disabled===true;
+   const busyShown=input().getAttribute('aria-busy')==='true'&&card.shadowRoot.querySelector('.searchSummary').textContent.startsWith('Zoeken…')&&!card.shadowRoot.querySelector('#searchGo');
    card.shadowRoot.querySelector('#searchClose')?.click();card._closeSearch();
    release({products:[{id:9,title:'Melk'}]});await settle();
-   const staleIgnored=!card.shadowRoot.querySelector('.searchResults')&&card.shadowRoot.querySelector('#searchGo').disabled===false;
+   const staleIgnored=!card.shadowRoot.querySelector('.searchResults')&&input().getAttribute('aria-busy')==='false';
 
    const wait=ms=>new Promise(r=>setTimeout(r,ms));
    const typed=text=>{input().value=text;input().dispatchEvent(new Event('input'));};
@@ -74,7 +74,7 @@ const assert=require('node:assert/strict'),path=require('node:path');
    typed('');await settle();
    const clearedCloses=!card.shadowRoot.querySelector('.searchResults');
    card.remove();
-   return {oneLetterWaits,notWhileTyping,searchedAfterPause,sameQueryNotRepeated,clearedCloses,hiddenByDefault,tooShortRejected,searched,resultsShown,marksOnList,inputKept,added,listUpdated,clearedAfterAdd,addedOnTop,errorReported,emptyMessage,closed,busyDisabled,staleIgnored};
+   return {oneLetterWaits,notWhileTyping,searchedAfterPause,sameQueryNotRepeated,clearedCloses,hiddenByDefault,tooShortRejected,searched,resultsShown,marksOnList,inputKept,added,listUpdated,clearedAfterAdd,addedOnTop,errorReported,emptyMessage,closed,busyShown,staleIgnored};
   });
   for(const [key,value] of Object.entries(result))assert.equal(value,true,key);
   console.log('PASS: optional search field, results with list quantity and Bonus, add and clear, errors, empty result, close, stale responses and automatic search after a typing pause');
