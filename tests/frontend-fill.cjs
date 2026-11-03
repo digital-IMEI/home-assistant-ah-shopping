@@ -16,12 +16,19 @@ const assert=require('node:assert/strict'),path=require('node:path');
    const autoRows=fill.getGridOptions().rows==='auto';
    const screenHeight=Math.round(fill.getBoundingClientRect().height)===800-56-32;
    const listScrolls=getComputedStyle(fill.shadowRoot.querySelector('.items')).overflowY==='auto';
+   // Phones drawing behind the status bar and navigation buttons report safe-area insets.
+   document.documentElement.style.setProperty('--safe-area-inset-top','24px');
+   document.documentElement.style.setProperty('--safe-area-inset-bottom','48px');
+   fill.setConfig({show_scan:false,fill_screen:true});
+   const insetRespected=Math.round(fill.getBoundingClientRect().height)===800-56-32-24-48;
+   document.documentElement.style.removeProperty('--safe-area-inset-top');
+   document.documentElement.style.removeProperty('--safe-area-inset-bottom');
    fill.remove();
    const scanOnly=make({show_products:false,show_header:false,fill_screen:true});
    const compactStaysSmall=scanOnly.getGridOptions().rows===2;
-   return {defaultRows,autoRows,screenHeight,listScrolls,compactStaysSmall};
+   return {defaultRows,autoRows,screenHeight,insetRespected,listScrolls,compactStaysSmall};
   });
   for(const [key,value] of Object.entries(result))assert.equal(value,true,key);
-  console.log('PASS: fixed grid rows by default, fill_screen sizes the card to the screen and keeps the list scrolling');
+  console.log('PASS: fixed grid rows by default, fill_screen sizes the card to the screen minus safe-area insets and keeps the list scrolling');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
