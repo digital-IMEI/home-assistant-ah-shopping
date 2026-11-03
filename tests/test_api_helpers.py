@@ -352,7 +352,7 @@ def test_store_route_positions_are_matched_to_list_items():
 
         async def _graphql(self, query, variables=None):
             assert "storesFavouriteStore" in query
-            return {"storesFavouriteStore": {"id": 1501, "name": "Teststad Centrum"}}
+            return {"storesFavouriteStore": {"id": 4321, "name": "Teststad Centrum"}}
 
         async def _raw_request(self, method, path, **kwargs):
             self.paths.append(path)
@@ -368,7 +368,7 @@ def test_store_route_positions_are_matched_to_list_items():
 
     client = RouteClient(None)
     data = asyncio.run(client.async_get_shopping_data())
-    assert client.paths[0].endswith("orderBy=store&orderByParam=1501")
+    assert client.paths[0].endswith("orderBy=store&orderByParam=4321")
     assert client.paths[1] == SHOPPINGLIST_ITEMS_READ_PATH
     assert data.store_name == "Teststad Centrum"
     assert {i.title: i.store_position for i in data.items} == {"Yoghurt": 2, "Iets lekkers": 1}
