@@ -246,3 +246,11 @@ def test_embedded_discount_is_reported_without_double_subtraction():
     data = ShoppingListData("x", "List", (ShoppingItem("", 1, 2, product=product),))
     assert data.bonus_savings == 3.00
     assert data.estimated_total == 3.98
+
+
+def test_product_category_is_exposed_on_list_items():
+    p = Product.from_api({"webshopId": 7, "title": "Bosui", "mainCategory": "Groente, aardappelen"})
+    assert p.category == "Groente, aardappelen"
+    item = ShoppingItem("i7", 7, 1, "Bosui", p).as_dict()
+    assert item["category"] == "Groente, aardappelen"
+    assert Product.from_api({"webshopId": 8, "title": "X"}).as_dict()["category"] == ""

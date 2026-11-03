@@ -20,6 +20,7 @@ A custom integration with a bundled dashboard card for AH **Mijn lijst**, produc
 - **Product details:** images, unit sizes, current prices, previous prices and Bonus labels.
 - **Scheduled order:** read-only products, quantities and delivery date/time.
 - **Combined overview:** merge identical products from the list and the next order, while keeping ordered and extra quantities separate.
+- **Sort by department:** optionally group the list under AH department headings, handy while shopping in store.
 - **Camera barcode scanner:** on-demand, automatically active on entering a dashboard, or a permanent feed.
 - **Fast local decoding:** bundled ZXing-C++/WebAssembly in a background worker, with alternative decoders for different devices.
 - **Scan feedback:** a locally generated checkout-style beep, a green scan line during the 1.2-second successful-add cooldown, and a recent-product feed with quantity controls.
@@ -146,6 +147,7 @@ Most settings are available in the visual card editor. `entity` is an optional Y
 | `scan_zoom` | `2` | 1×–4×; editor steps of 0.25. Hardware zoom when available, otherwise a digital crop. |
 | `scan_decoder` | `auto` | `auto`, `wasm`, `zxing`, `native`, `local`; see below. |
 | `scan_label` | `Scan product` | Text on the scan button. |
+| `sort` | `input` | `input`: order of entry; `department`: group products under AH department headings (alphabetical, free-text items under *Overig*). |
 
 Legacy `product_source: cart` / `cart_and_order` map to `shopping_list` / `shopping_list_and_order`. Legacy `mode: scan_only` remains compatible.
 

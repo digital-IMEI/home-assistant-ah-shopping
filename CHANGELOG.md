@@ -2,6 +2,11 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
+### Unreleased
+
+- Adds `sort: department` to the card: products are grouped under their AH department (for example *Fruit, verse sappen*), alphabetically, with free-text items under *Overig*. The default `sort: input` keeps the current order.
+- Exposes each product's AH department as `category` in the shopping-list item attributes and action responses.
+
 ### 0.2.29
 
 - Mirrors the front-camera preview so left/right movement feels natural. Rear-camera preview keeps its normal orientation.

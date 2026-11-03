@@ -37,6 +37,7 @@ class Product:
     is_bonus: bool = False
     bonus_mechanism: str = ""
     image_url: str = ""
+    category: str = ""
 
     @classmethod
     def from_api(cls, payload: dict[str, Any]) -> "Product":
@@ -73,6 +74,7 @@ class Product:
             ),
             bonus_mechanism=str(data.get("bonusMechanism") or ""),
             image_url=best_image,
+            category=str(data.get("mainCategory") or ""),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -86,6 +88,7 @@ class Product:
             "is_bonus": self.is_bonus,
             "bonus_mechanism": self.bonus_mechanism,
             "image_url": self.image_url,
+            "category": self.category,
         }
 
 
