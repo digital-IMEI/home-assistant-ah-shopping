@@ -48,7 +48,7 @@ function decodeEANFromImageData(imageData){
 }
 
 class AhShoppingCard extends HTMLElement {
-  constructor(){super(); this.attachShadow({mode:'open'}); this._config={}; this._hass=null; this._listScrollTop=0; this._scanner=null; this._scanLoop=null; this._scanVideoFrame=null; this._scanAnimationFrame=null; this._decodeWorker=null; this._workerPending=null; this._scanGeneration=0; this._scanCooldownUntil=0; this._facing='user'; this._message=''; this._lastEntitySig=null; this._barcodeDetector=null; this._zxingReader=null; this._decoderMode='local'; this._cameraInfo=''; this._scanCount=0; this._scanBusy=false; this._scanProcessing=false; this._scanQueue=[]; this._heldBarcode=''; this._heldBarcodeLastSeen=0; this._barcodeAbsentSince=0; this._audioContext=null; this._scanProduct=null; this._scanPendingQty=new Map(); this._scanQtyWorkers=new Map(); this._pendingQty=new Map(); this._rowRemovals=new Map(); this._qtyWorkers=new Map(); this._stableItemOrder=new Map(); this._stableItemSeq=0; this._searchQuery=''; this._searchShown=''; this._searchResults=null; this._searchBusy=false; this._searchSeq=0; this._scanInlineActive=false; this._scanRecent=[]; this._scanRecentTimer=null; this._intersecting=false; this._visibilityObserver=null; this._visibilitySetup=false; this._cameraStarting=false; this._digitalZoom=1; this._nativeZoom=1; this._decoderMisses=0; this._scannerRoute=''; this._autoScannerRoute=''; this._autoVisitArmed=true; this._scanTimer=null; this._scanTimerTick=null; this._scanDeadline=0; this._listScrollAnchor=null; this._scanBandCanvas=null; this._scanStatusTimer=null; this._isAndroid=/Android/i.test(navigator.userAgent||''); window.__ahShoppingScanOrder=window.__ahShoppingScanOrder||{seq:0,products:new Map()}; this._scanOrderState=window.__ahShoppingScanOrder; this._visibilityHandler=()=>this._syncScannerVisibility(); this._locationHandler=()=>requestAnimationFrame(()=>this._handleLocationChange());}
+  constructor(){super(); this.attachShadow({mode:'open'}); this._config={}; this._hass=null; this._listScrollTop=0; this._scanner=null; this._scanLoop=null; this._scanVideoFrame=null; this._scanAnimationFrame=null; this._decodeWorker=null; this._workerPending=null; this._scanGeneration=0; this._scanCooldownUntil=0; this._facing='user'; this._message=''; this._lastEntitySig=null; this._barcodeDetector=null; this._zxingReader=null; this._decoderMode='local'; this._cameraInfo=''; this._scanCount=0; this._scanBusy=false; this._scanProcessing=false; this._scanQueue=[]; this._heldBarcode=''; this._heldBarcodeLastSeen=0; this._barcodeAbsentSince=0; this._audioContext=null; this._scanProduct=null; this._scanPendingQty=new Map(); this._scanQtyWorkers=new Map(); this._pendingQty=new Map(); this._rowRemovals=new Map(); this._qtyWorkers=new Map(); this._stableItemOrder=new Map(); this._stableItemSeq=0; this._searchQuery=''; this._searchShown=''; this._searchResults=null; this._searchBusy=false; this._searchSeq=0; this._searchPick=null; this._scanInlineActive=false; this._scanRecent=[]; this._scanRecentTimer=null; this._intersecting=false; this._visibilityObserver=null; this._visibilitySetup=false; this._cameraStarting=false; this._digitalZoom=1; this._nativeZoom=1; this._decoderMisses=0; this._scannerRoute=''; this._autoScannerRoute=''; this._autoVisitArmed=true; this._scanTimer=null; this._scanTimerTick=null; this._scanDeadline=0; this._listScrollAnchor=null; this._scanBandCanvas=null; this._scanStatusTimer=null; this._isAndroid=/Android/i.test(navigator.userAgent||''); window.__ahShoppingScanOrder=window.__ahShoppingScanOrder||{seq:0,products:new Map()}; this._scanOrderState=window.__ahShoppingScanOrder; this._visibilityHandler=()=>this._syncScannerVisibility(); this._locationHandler=()=>requestAnimationFrame(()=>this._handleLocationChange());}
   static getStubConfig(){return {show_header:true,show_scan:true,show_products:true,product_source:'shopping_list',scanner_mode:'button',scan_camera:'front',scan_zoom:2,scan_decoder:'auto'};}
   static getConfigForm(){return {schema:[
     {name:'title',selector:{text:{}}},
@@ -417,7 +417,9 @@ class AhShoppingCard extends HTMLElement {
         p.is_bonus?`<span class="bonus">BONUS · ${this._esc(p.bonus_mechanism||'Aanbieding')}</span>`:'',
         qty?`<span class="unitSize">${qty} op lijst</span>`:''
       ].filter(Boolean).join('');
-      const controls=`<div class="qty compactQty"><button data-search-add data-pid="${Number(p.id)}" aria-label="Voeg ${this._esc(p.title)} toe">+</button></div>`;
+      const picked=this._searchPickQty(Number(p.id));
+      const minus=picked?`<button data-search-minus data-pid="${Number(p.id)}" aria-label="Eén minder">−</button><span>${picked}</span>`:'';
+      const controls=`<div class="qty compactQty">${minus}<button data-search-add data-pid="${Number(p.id)}" aria-label="Voeg ${this._esc(p.title)} toe">+</button></div>`;
       return this._productRow(p,{controls,compact:true,metaHtml:meta,rowKey:`s:${Number(p.id)}`});
     }).join('');
     const count=(this._searchResults||[]).length;
@@ -436,6 +438,7 @@ class AhShoppingCard extends HTMLElement {
     },SEARCH_DELAY_MS);
   }
   async _runSearch(){
+    if(this._searchPick)this._commitSearchPick({close:false});
     clearTimeout(this._searchTimer);
     const query=String(this._searchQuery||'').trim();
     if(query.length<2){this._toast('Typ minstens 2 letters',true);return;}
@@ -452,19 +455,35 @@ class AhShoppingCard extends HTMLElement {
       if(seq===this._searchSeq){this._searchBusy=false;this._render();}
     }
   }
-  async _searchAdd(pid){
+  _searchPickQty(pid){return this._searchPick&&this._searchPick.pid===pid?this._searchPick.qty:0;}
+  _searchStep(pid,delta){
+    // + and − set a quantity first; it is added after a short pause, so 2× takes two taps.
+    if(this._searchPick&&this._searchPick.pid!==pid)this._commitSearchPick({close:false});
+    const qty=Math.max(0,this._searchPickQty(pid)+delta);
+    clearTimeout(this._searchPick?.timer);
+    if(!qty){this._searchPick=null;this._render();return;}
     const product=(this._searchResults||[]).find(p=>Number(p.id)===pid);
-    this._promoteScannedProduct(pid);
+    this._searchPick={pid,qty,title:product?.title||'Product',timer:setTimeout(()=>this._commitSearchPick(),SEARCH_DELAY_MS)};
+    this._render();
+  }
+  async _commitSearchPick({close=true}={}){
+    const pick=this._searchPick;
+    if(!pick)return;
+    clearTimeout(pick.timer);
+    this._searchPick=null;
+    this._promoteScannedProduct(pick.pid);
     // One search usually means one product: clear the field so the next search starts fresh.
-    this._closeSearch();
+    if(close)this._closeSearch();else this._render();
     try{
-      await this._service('add_product',{product_id:pid,quantity:1});
-      this._toast(`${product?.title||'Product'} toegevoegd`);
+      await this._service('add_product',{product_id:pick.pid,quantity:pick.qty});
+      this._toast(`${pick.qty>1?`${pick.qty}× `:''}${pick.title} toegevoegd`);
     }catch(e){
       this._toast(e.message||String(e),true);
     }
   }
   _closeSearch(){
+    // Closing the results never loses a quantity that was already chosen.
+    if(this._searchPick){this._commitSearchPick();return;}
     clearTimeout(this._searchTimer);
     this._searchSeq++;
     this._searchBusy=false;this._searchResults=null;this._searchQuery='';this._searchShown='';
@@ -607,7 +626,8 @@ class AhShoppingCard extends HTMLElement {
     if(searchInput)searchInput.oninput=()=>{this._searchQuery=searchInput.value;this._queueSearch();};
     const searchClose=this.shadowRoot.querySelector('#searchClose');
     if(searchClose)searchClose.onclick=()=>this._closeSearch();
-    this.shadowRoot.querySelectorAll('[data-search-add]').forEach(el=>el.onclick=()=>this._searchAdd(Number(el.dataset.pid)));
+    this.shadowRoot.querySelectorAll('[data-search-add]').forEach(el=>el.onclick=()=>this._searchStep(Number(el.dataset.pid),1));
+    this.shadowRoot.querySelectorAll('[data-search-minus]').forEach(el=>el.onclick=()=>this._searchStep(Number(el.dataset.pid),-1));
 
 
     this._restoreListScroll();

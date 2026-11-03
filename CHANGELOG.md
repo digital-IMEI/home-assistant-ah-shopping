@@ -4,7 +4,7 @@ Historical entries describe the behaviour of that version; the [README](README.m
 
 ### Unreleased
 
-- Adds an optional search field to the card (`show_search: true`, “Voeg iets toe aan je lijstje”) that searches after a short pause in typing or on Enter. Results show image, unit size, price, Bonus and the quantity already on the list; **+** adds the product to Mijn lijst and clears the search, through the existing `ah_shopping.search_products` and `ah_shopping.add_product` actions.
+- Adds an optional search field to the card (`show_search: true`, “Voeg iets toe aan je lijstje”) that searches after a short pause in typing or on Enter. Results show image, unit size, price, Bonus and the quantity already on the list; **+** and **−** choose a quantity (for example 2× with two taps), which is added to Mijn lijst after a short pause before the search is cleared, through the existing `ah_shopping.search_products` and `ah_shopping.add_product` actions.
 
 ### 0.2.29
 
