@@ -398,14 +398,21 @@ def test_list_total_auth_error_is_not_swallowed():
         asyncio.run(_priced_list_client(rejected).async_get_shopping_data())
 
 
-def test_local_edit_drops_stale_ah_total():
+def test_local_edit_keeps_ah_total_shifted_by_the_local_change():
     async def ah_price():
         return 11.66, 5.78
 
     data = asyncio.run(_priced_list_client(ah_price).async_get_shopping_data())
+    # One more B: +2.99 before discount; locally that second B is free, so payable is unchanged.
     edited = data.with_product_quantity(12, 2)
-    assert edited.price_source == "estimate"
-    assert edited.subtotal == round(3 * 2.89 + 2 * 2.99, 2)
+    assert edited.price_source == "ah_adjusted"
+    assert (edited.subtotal, edited.estimated_total, edited.bonus_savings) == (14.65, 5.88, 8.77)
+    # Removing A entirely moves the totals by A's local amounts; a short-lived
+    # approximation until AH prices the new list, but never negative.
+    removed = data.with_product_quantity(11, 0)
+    assert removed.subtotal == 2.99 and 0 <= removed.estimated_total <= removed.subtotal
+    # Back to the priced quantities: exact AH price again.
+    assert edited.with_product_quantity(12, 1).price_source == "ah"
 
 
 def test_total_price_query_parses_amounts():

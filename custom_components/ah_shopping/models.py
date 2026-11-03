@@ -208,12 +208,22 @@ def _promotion_totals(items: tuple[ShoppingItem, ...]) -> tuple[float, float]:
 
 
 @dataclass(slots=True, frozen=True)
+class AhPrice:
+    """AH's totalPrice for one set of product quantities, plus the local estimate then."""
+
+    signature: tuple[tuple[int, int], ...]
+    before_discount: float
+    discount: float
+    local_subtotal: float
+    local_payable: float
+
+
+@dataclass(slots=True, frozen=True)
 class ShoppingListData:
     list_id: str
     name: str
     items: tuple[ShoppingItem, ...] = field(default_factory=tuple)
-    # AH's own price for exactly these product quantities: (signature, before discount, discount).
-    ah_price: tuple[tuple[tuple[int, int], ...], float, float] | None = None
+    ah_price: AhPrice | None = None
 
     @property
     def total_quantity(self) -> int:
@@ -227,34 +237,61 @@ class ShoppingListData:
             if item.product_id > 0 and item.quantity > 0
         ))
 
+    def _local_subtotal(self) -> float:
+        return round(sum(item.line_total for item in self.items), 2)
+
+    def _local_payable(self) -> float:
+        return round(self._local_subtotal() - _promotion_totals(self.items)[1], 2)
+
+    def priced(self, before_discount: float, discount: float) -> "ShoppingListData":
+        """Return a copy carrying AH's price for the current product quantities."""
+        return replace(self, ah_price=AhPrice(
+            self.price_signature(), before_discount, discount,
+            self._local_subtotal(), self._local_payable(),
+        ))
+
     @property
     def _ah_totals(self) -> tuple[float, float] | None:
-        """AH's price, unless a local edit has changed the list since it was fetched."""
-        if self.ah_price and self.ah_price[0] == self.price_signature():
-            return self.ah_price[1], self.ah_price[2]
-        return None
+        """AH's before-discount and payable totals.
+
+        After a local edit, until AH has priced the new quantities, AH's last
+        price is shifted by the change in the local estimate. That keeps AH's
+        segment-wide offers in the total instead of dropping to the estimate.
+        """
+        price = self.ah_price
+        if price is None:
+            return None
+        before = price.before_discount
+        payable = price.before_discount - price.discount
+        if price.signature != self.price_signature():
+            before += self._local_subtotal() - price.local_subtotal
+            payable += self._local_payable() - price.local_payable
+        before = max(0.0, before)
+        return before, min(before, max(0.0, payable))
 
     @property
     def price_source(self) -> str:
-        return "ah" if self._ah_totals else "estimate"
+        if self.ah_price is None:
+            return "estimate"
+        return "ah" if self.ah_price.signature == self.price_signature() else "ah_adjusted"
 
     @property
     def subtotal(self) -> float:
         if ah := self._ah_totals:
             return round(ah[0], 2)
-        return round(sum(item.line_total for item in self.items), 2)
+        return self._local_subtotal()
 
     @property
     def bonus_savings(self) -> float:
         if ah := self._ah_totals:
-            return round(ah[1], 2)
+            return round(max(0.0, ah[0] - ah[1]), 2)
         return round(sum(_promotion_totals(self.items)), 2)
 
     @property
     def estimated_total(self) -> float:
         if ah := self._ah_totals:
-            return round(ah[0] - ah[1], 2)
-        return round(self.subtotal - _promotion_totals(self.items)[1], 2)
+            return round(ah[1], 2)
+        return self._local_payable()
 
     def quantity_for_product(self, product_id: int) -> int:
         item = self.item_for_product(product_id)

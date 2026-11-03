@@ -218,7 +218,7 @@ Example for a script or automation action sequence:
 
 Totals are calculated **product totals**, not guaranteed final checkout invoices. The order card uses `estimated_product_total` when available; AH's `total_price` remains a separate sensor attribute. Delivery charges, deposits, unavailable products, substitutions and promotions the integration cannot interpret may cause differences.
 
-For the shopping list, the integration asks Albert Heijn to price the list (`totalPrice`, the same calculation the Appie app shows), so promotions that combine different products of one Bonus segment, such as “2e gratis” across a brand, are included. The sensor attribute `price_source` is `ah` then. Right after a local edit, or when AH cannot price the list, it falls back to the calculation below (`price_source: estimate`) until the next refresh.
+For the shopping list, the integration asks Albert Heijn to price the list (`totalPrice`, the same calculation the Appie app shows), so promotions that combine different products of one Bonus segment, such as “2e gratis” across a brand, are included. The sensor attribute `price_source` is `ah` then. After a quantity change in Home Assistant the new list is priced by AH right away; until that answer arrives, AH's last price is shifted by the local change (`ah_adjusted`). Only when AH has not priced the list at all is the calculation below used (`estimate`).
 
 Supported fallback calculations include current discounted unit prices, second half price, 1+1 free, “N halen M betalen” and “N voor X”. Mixed-product promotions are grouped only for the specifically implemented Big Americans pizza offer, not merely because two products share the same Bonus text. Unknown/personalised promotion rules are not guaranteed.
 

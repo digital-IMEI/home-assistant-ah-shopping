@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from dataclasses import replace
 from datetime import datetime, timezone
 import json
 import logging
@@ -605,5 +604,5 @@ class AhShoppingApiClient:
                 _LOGGER.debug("AH total price unavailable: %s", err)
             else:
                 if before > 0:
-                    result = replace(result, ah_price=(signature, before, discount))
+                    result = result.priced(before, discount)
         return result

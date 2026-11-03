@@ -50,6 +50,7 @@ class AhShoppingCoordinator(DataUpdateCoordinator[ShoppingListData]):
         self._pending_checked: dict[str, tuple[bool, float]] = {}
         self._write_locks: dict[str, asyncio.Lock] = {}
         self._reconcile_task: asyncio.Task | None = None
+        self._reprice_task: asyncio.Task | None = None
         self.last_synced_at: str | None = None
 
     @staticmethod
@@ -82,6 +83,7 @@ class AhShoppingCoordinator(DataUpdateCoordinator[ShoppingListData]):
         else:
             data = self.data.with_product_quantity(product_id, quantity)
         self.async_set_updated_data(data)
+        self._schedule_reprice()
         self._schedule_reconcile()
 
     def note_checked(self, item: ShoppingItem, checked: bool) -> None:
@@ -94,6 +96,35 @@ class AhShoppingCoordinator(DataUpdateCoordinator[ShoppingListData]):
             self.data.with_item_checked(item.product_id, item.description, checked)
         )
         self._schedule_reconcile()
+
+    async def _async_priced(self, data: ShoppingListData) -> ShoppingListData:
+        """Ask AH to price these quantities; keep the data unchanged on failure."""
+        if data.price_source != "ah_adjusted":
+            return data
+        try:
+            before, discount = await self.client.async_get_total_price(
+                list(data.price_signature())
+            )
+        except AhShoppingError as err:
+            _LOGGER.debug("AH total price unavailable: %s", err)
+            return data
+        return data.priced(before, discount) if before > 0 else data
+
+    def _schedule_reprice(self) -> None:
+        """Price a local edit right away instead of waiting for the next refresh."""
+        if self._reprice_task and not self._reprice_task.done():
+            self._reprice_task.cancel()
+        self._reprice_task = self.hass.async_create_task(self._reprice())
+
+    async def _reprice(self) -> None:
+        try:
+            current = self.data
+            priced = await self._async_priced(current)
+        except asyncio.CancelledError:
+            return
+        # Drop the answer when another edit arrived while AH was pricing.
+        if priced is not current and self.data is current:
+            self.async_set_updated_data(priced)
 
     def _schedule_reconcile(self) -> None:
         if self._reconcile_task and not self._reconcile_task.done():
@@ -152,7 +183,8 @@ class AhShoppingCoordinator(DataUpdateCoordinator[ShoppingListData]):
         try:
             remote = await self.client.async_get_shopping_data()
             self.last_synced_at = datetime.now(timezone.utc).isoformat()
-            return self._merge_pending(remote)
+            # Pending local writes can differ from what AH priced with the list.
+            return await self._async_priced(self._merge_pending(remote))
         except AhAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except AhShoppingError as err:
