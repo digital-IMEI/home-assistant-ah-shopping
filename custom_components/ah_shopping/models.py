@@ -224,6 +224,8 @@ class ShoppingListData:
     name: str
     items: tuple[ShoppingItem, ...] = field(default_factory=tuple)
     ah_price: AhPrice | None = None
+    # A local edit that AH is pricing right now: keep showing AH's last price.
+    reprice_pending: bool = False
 
     @property
     def total_quantity(self) -> int:
@@ -245,7 +247,7 @@ class ShoppingListData:
 
     def priced(self, before_discount: float, discount: float) -> "ShoppingListData":
         """Return a copy carrying AH's price for the current product quantities."""
-        return replace(self, ah_price=AhPrice(
+        return replace(self, reprice_pending=False, ah_price=AhPrice(
             self.price_signature(), before_discount, discount,
             self._local_subtotal(), self._local_payable(),
         ))
@@ -254,16 +256,17 @@ class ShoppingListData:
     def _ah_totals(self) -> tuple[float, float] | None:
         """AH's before-discount and payable totals.
 
-        After a local edit, until AH has priced the new quantities, AH's last
-        price is shifted by the change in the local estimate. That keeps AH's
-        segment-wide offers in the total instead of dropping to the estimate.
+        While AH prices a local edit, its last price stays as it is, so the
+        total changes once, straight to AH's new amount. Only when that
+        repricing failed is AH's last price shifted by the change in the local
+        estimate, which keeps segment-wide offers in the total.
         """
         price = self.ah_price
         if price is None:
             return None
         before = price.before_discount
         payable = price.before_discount - price.discount
-        if price.signature != self.price_signature():
+        if price.signature != self.price_signature() and not self.reprice_pending:
             before += self._local_subtotal() - price.local_subtotal
             payable += self._local_payable() - price.local_payable
         before = max(0.0, before)
@@ -273,7 +276,9 @@ class ShoppingListData:
     def price_source(self) -> str:
         if self.ah_price is None:
             return "estimate"
-        return "ah" if self.ah_price.signature == self.price_signature() else "ah_adjusted"
+        if self.ah_price.signature == self.price_signature():
+            return "ah"
+        return "ah_pending" if self.reprice_pending else "ah_adjusted"
 
     @property
     def subtotal(self) -> float:

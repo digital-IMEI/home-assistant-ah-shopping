@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import replace
 from datetime import datetime, timedelta, timezone
 import logging
 import time
@@ -82,7 +83,7 @@ class AhShoppingCoordinator(DataUpdateCoordinator[ShoppingListData]):
             data = self.data.with_product(product, quantity)
         else:
             data = self.data.with_product_quantity(product_id, quantity)
-        self.async_set_updated_data(data)
+        self.async_set_updated_data(replace(data, reprice_pending=True))
         self._schedule_reprice()
         self._schedule_reconcile()
 
@@ -98,8 +99,8 @@ class AhShoppingCoordinator(DataUpdateCoordinator[ShoppingListData]):
         self._schedule_reconcile()
 
     async def _async_priced(self, data: ShoppingListData) -> ShoppingListData:
-        """Ask AH to price these quantities; keep the data unchanged on failure."""
-        if data.price_source != "ah_adjusted":
+        """Ask AH to price these quantities; on failure show the adjusted estimate."""
+        if data.price_source not in ("ah_pending", "ah_adjusted"):
             return data
         try:
             before, discount = await self.client.async_get_total_price(
@@ -107,8 +108,10 @@ class AhShoppingCoordinator(DataUpdateCoordinator[ShoppingListData]):
             )
         except AhShoppingError as err:
             _LOGGER.debug("AH total price unavailable: %s", err)
-            return data
-        return data.priced(before, discount) if before > 0 else data
+        else:
+            if before > 0:
+                return data.priced(before, discount)
+        return replace(data, reprice_pending=False) if data.reprice_pending else data
 
     def _schedule_reprice(self) -> None:
         """Price a local edit right away instead of waiting for the next refresh."""

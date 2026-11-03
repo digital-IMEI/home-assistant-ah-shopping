@@ -106,3 +106,30 @@ def test_failed_reprice_keeps_adjusted_ah_total(monkeypatch):
     coordinator = _coordinator(cls, PricingClient([AhTransientError("down")]), edited)
     asyncio.run(coordinator._reprice())
     assert coordinator.data is edited and edited.price_source == "ah_adjusted"
+
+
+def test_pending_edit_keeps_last_ah_price_until_ah_answers(monkeypatch):
+    from dataclasses import replace
+
+    cls = load_coordinator(monkeypatch)
+    priced = _list().priced(11.66, 5.78)
+    pending = replace(priced.with_product_quantity(12, 2), reprice_pending=True)
+    # No intermediate jump: the last exact AH amounts stay until AH answers.
+    assert pending.price_source == "ah_pending"
+    assert (pending.subtotal, pending.bonus_savings, pending.estimated_total) == (11.66, 5.78, 5.88)
+    coordinator = _coordinator(cls, PricingClient([(14.65, 8.78)]), pending)
+    asyncio.run(coordinator._reprice())
+    assert coordinator.data.price_source == "ah"
+    assert (coordinator.data.subtotal, coordinator.data.estimated_total) == (14.65, 5.87)
+    assert coordinator.data.reprice_pending is False
+
+
+def test_failed_pending_reprice_falls_back_to_adjusted_total(monkeypatch):
+    from dataclasses import replace
+
+    cls = load_coordinator(monkeypatch)
+    pending = replace(_list().priced(11.66, 5.78).with_product_quantity(12, 2), reprice_pending=True)
+    coordinator = _coordinator(cls, PricingClient([AhTransientError("down")]), pending)
+    asyncio.run(coordinator._reprice())
+    assert coordinator.data.price_source == "ah_adjusted"
+    assert coordinator.data.subtotal == 14.65
