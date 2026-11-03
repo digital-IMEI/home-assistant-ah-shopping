@@ -147,7 +147,7 @@ Most settings are available in the visual card editor. `entity` is an optional Y
 | `scan_zoom` | `2` | 1×–4×; editor steps of 0.25. Hardware zoom when available, otherwise a digital crop. |
 | `scan_decoder` | `auto` | `auto`, `wasm`, `zxing`, `native`, `local`; see below. |
 | `scan_label` | `Scan product` | Text on the scan button. |
-| `sort` | `input` | `input`: order of entry; `department`: group products under AH department headings (alphabetical, free-text items under *Overig*); `store`: the walking route of the favourite store chosen in the Appie app, as in its store sorting. |
+| `sort` | `input` | `input`: order of entry; `department`: group products under AH department headings (alphabetical, free-text items under *Overig*); `store` (optional): the walking route of the favourite store chosen in the Appie app, without headings; falls back to `department` when AH returns no route. |
 
 Legacy `product_source: cart` / `cart_and_order` map to `shopping_list` / `shopping_list_and_order`. Legacy `mode: scan_only` remains compatible.
 

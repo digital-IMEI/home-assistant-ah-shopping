@@ -5,7 +5,7 @@ Historical entries describe the behaviour of that version; the [README](README.m
 ### Unreleased
 
 - Adds `sort: department` to the card: products are grouped under their AH department (for example *Fruit, verse sappen*), alphabetically, with free-text items under *Overig*. The default `sort: input` keeps the current order.
-- Adds `sort: store`: the list follows the walking route of the favourite store chosen in the Appie app (AH's `orderBy=store`), with new items last until the next refresh. The route is read before the regular list read, so the list's own sort order is left as before. Exposes `store_position` per item and `store_name`.
+- Adds `sort: store`: the list follows the walking route of the favourite store chosen in the Appie app (AH's `orderBy=store`), without headings and with new items last until the next refresh. Without a route from AH it shows the department headings instead. The route is read before the regular list read, so the list's own sort order is left as before. Exposes `store_position` per item and `store_name`.
 - Exposes each product's AH department as `category` in the shopping-list item attributes and action responses.
 
 ### 0.2.29
