@@ -27,7 +27,7 @@ For reauthentication, use the same AH account as the existing integration. Never
 
 ## Camera preview missing
 
-Use HTTPS and grant camera permission to the dashboard browser/app. Camera capture takes place on that device, not on the Home Assistant server.
+Live camera preview requires HTTPS (or another secure context) and browser camera permission. On plain HTTP, **Scan product** offers a one-shot camera photo instead; it decodes locally and uses the same add-barcode action. Camera capture takes place on that device, not on the Home Assistant server.
 
 In Fully Kiosk, check the app and Android camera permissions. Close other apps using the camera. Try `scan_camera: rear` or `front` as appropriate. A hidden/background card intentionally stops its camera.
 
@@ -64,17 +64,28 @@ First distinguish **Mijn lijst**, **next order** and the **combined** view. Thei
 
 - The list savings sensor does not include order savings; use the separate Next Order Bonus Savings sensor.
 - The order card uses calculated product totals, not necessarily AH's final checkout amount.
-- Check quantities, current/previous prices, promotion text, supported mixed-product groups and the order cut-off.
+- For **Mijn lijst**, check the `price_source` sensor attribute: `ah` uses AH's price calculation; `ah_pending` is waiting for a repricing; `ah_adjusted` reflects a local change since the last AH price; `estimate` uses only local promotion rules.
+- Check quantities, current/previous prices, promotion text and the order cut-off. The local fallback estimates `N + M gratis` and other common offers; AH pricing handles mixed-product deals.
 - Unit discounts already embedded in the current price are not subtracted twice.
 - Delivery charges, deposits, substitutions and unsupported/personalised deals may differ.
 
 For a report, include only anonymised product IDs, quantities, price fields and Bonus text; remove list/order IDs, account details and delivery information.
+
+## Struck-through and checked products
+
+Products checked in the Appie app appear dimmed and struck through. The native To-do representation marks them completed. The shopping-list card can restore all checked products or remove them with confirmation; these operations do not change confirmed order lines. Bulk remove is not covered by the four-second per-row undo. A partial AH failure can leave some items already changed, so refresh and inspect the list before trying again.
 
 ## Quantity or scrolling issues
 
 A last-quantity deletion stays at zero for four seconds so plus can restore it. Normal rows retain their DOM nodes and scroll anchor. Recent successful writes are temporarily protected against stale AH responses, then reconciled.
 
 If an error restores a row, the deletion was not accepted. Do not retry repeatedly without checking the error. Report the source view, pending_changes, last_synced and steps to reproduce.
+
+## Search, department ordering and favourite store
+
+Enable `show_search: true` on the dashboard card for an inline AH product search. Wait 0.8 seconds after typing or press Enter. Increase a result's quantity and confirm, or let the two-second add timer finish.
+
+`sort: department` groups the list alphabetically by AH department; free-text and uncategorised entries appear under **Overig**. `sort: store` uses the favourite store selected in the Appie app. If AH does not return a route, the card falls back to department grouping. A store-route lookup may add one GET request to a refresh.
 
 ## Debug logging
 
