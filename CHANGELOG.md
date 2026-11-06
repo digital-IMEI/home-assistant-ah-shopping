@@ -2,6 +2,18 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
+### Unreleased
+
+- Consolidates contributions #1, #2, #3, #7, #8, #9 and #10.
+- Adds photo-based barcode scanning on plain-HTTP dashboards, and visibility-aware list refresh with a shared 30-second throttle.
+- Displays struck-through items, maps them to completed To-do entries, and adds bulk restore/remove actions.
+- Calculates generic `N + M gratis` promotions in the local fallback.
+- Adds optional inline product search (`show_search`) with quantity selection and AH product lookup.
+- Adds optional sorting (`sort: input | department | store`) using AH department metadata and the favourite-store walking route.
+- Uses AH's own `totalPrice` calculation for list subtotal and Bonus savings, including mixed-product promotions, with a resilient local fallback and `price_source` attribute.
+- Adds optional mobile screen fitting (`fill_screen`), Appie-style item display and swipe-to-remove with undo.
+- Extends Python, browser and CI regression coverage for the combined features.
+
 ### 0.2.29
 
 - Mirrors the front-camera preview so left/right movement feels natural. Rear-camera preview keeps its normal orientation.
