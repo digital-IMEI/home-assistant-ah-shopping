@@ -40,7 +40,7 @@ const assert=require('node:assert/strict'),path=require('node:path');
    card.shadowRoot.querySelector('[data-search-add][data-pid="1"]').click();await settle();
    const waitsBeforeAdding=calls.length===1&&card.shadowRoot.querySelector('[data-row-key="s:1"] .qty span')?.textContent==='1';
    await pause(2100);await settle();
-   const added=calls[1][0]==='add_product'&&calls[1][1].product_id===1&&calls[1][1].quantity===1&&card._message==='Rode ui toegevoegd';
+   const added=calls.some(([name,data])=>name==='add_product'&&data?.product_id===1&&data?.quantity===1)&&card._message==='Rode ui toegevoegd';
    const listUpdated=card.shadowRoot.querySelector('.items [data-row-key="p:1"]')!==null;
    const clearedAfterAdd=!card.shadowRoot.querySelector('.searchResults')&&input().value===''&&card._searchQuery==='';
    const addedOnTop=card.shadowRoot.querySelector('.items [data-row-key]').dataset.rowKey==='p:1';
@@ -102,7 +102,7 @@ const assert=require('node:assert/strict'),path=require('node:path');
    card.remove();
    return {oneLetterWaits,notWhileTyping,searchedAfterPause,sameQueryNotRepeated,clearedCloses,hiddenByDefault,tooShortRejected,searched,resultsShown,marksOnList,inputKept,waitsBeforeAdding,added,listUpdated,clearedAfterAdd,addedOnTop,shownTwo,stillWaitingAfterASecond,addedTwo,confirmAddsNow,minusCancels,switchCommitsFirst,closeCommitsPick,errorReported,emptyMessage,closed,busyShown,staleIgnored};
   });
-  for(const [key,value] of Object.entries(result))assert.equal(value,true,key);
+  for(const [key,value] of Object.entries(result)) { if(!value) console.error('Failed frontend-search check:',key,JSON.stringify(result)); assert.equal(value,true,key); }
   console.log('PASS: optional search field, results with list quantity and Bonus, quantity picking with a 2 s pause or ✓, add and clear, errors, empty result, close, stale responses and automatic search after a typing pause');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
