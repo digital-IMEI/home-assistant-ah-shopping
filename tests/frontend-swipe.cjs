@@ -29,7 +29,7 @@ async function run(context,body){
    const verticalIgnored=row(2).style.transform===''&&!card._pendingQty.size;
    await swipe(row(3),-220);
    const longRemoves=card._pendingQty.get('shopping_list:3')===0&&row(3).classList.contains('rowUndo')&&row(3).style.transform==='';
-   const undoWindowFirst=calls.length===0;
+   const undoWindowFirst=!calls.some(([name])=>name==='set_quantity');
    await swipe(row(1),200);
    const rightAlsoRemoves=card._pendingQty.get('shopping_list:1')===0;
    card.remove();
