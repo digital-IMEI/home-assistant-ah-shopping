@@ -49,3 +49,9 @@ remove_product:
       selector: {number: {mode: box}}
 refresh:
   name: Refresh list
+restore_checked:
+  name: Restore struck-through products
+  description: Un-strike every struck-through product on Mijn lijst.
+remove_checked:
+  name: Remove struck-through products
+  description: Remove every struck-through product from Mijn lijst.
