@@ -228,6 +228,8 @@ class AhPrice:
     discount: float
     local_subtotal: float
     local_payable: float
+
+
 @dataclass(slots=True, frozen=True)
 class ShoppingListData:
     list_id: str
@@ -252,16 +254,21 @@ class ShoppingListData:
 
     def _local_subtotal(self) -> float:
         return round(sum(item.line_total for item in self.items), 2)
+
     def _local_payable(self) -> float:
         return round(self._local_subtotal() - _promotion_totals(self.items)[1], 2)
+
     def priced(self, before_discount: float, discount: float) -> "ShoppingListData":
         """Return a copy carrying AH's price for the current product quantities."""
         return replace(self, reprice_pending=False, ah_price=AhPrice(
             self.price_signature(), before_discount, discount,
             self._local_subtotal(), self._local_payable(),
+        ))
+
     @property
     def _ah_totals(self) -> tuple[float, float] | None:
         """AH's before-discount and payable totals.
+
         While AH prices a local edit, its last price stays as it is, so the
         total changes once, straight to AH's new amount. Only when that
         repricing failed is AH's last price shifted by the change in the local
@@ -277,12 +284,15 @@ class ShoppingListData:
             payable += self._local_payable() - price.local_payable
         before = max(0.0, before)
         return before, min(before, max(0.0, payable))
+
+    @property
     def price_source(self) -> str:
         if self.ah_price is None:
             return "estimate"
         if self.ah_price.signature == self.price_signature():
             return "ah"
         return "ah_pending" if self.reprice_pending else "ah_adjusted"
+
     @property
     def subtotal(self) -> float:
         if ah := self._ah_totals:
