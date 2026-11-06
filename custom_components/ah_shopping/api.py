@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import json
 import logging
 import time
+import logging
 from typing import Any
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 
@@ -22,15 +23,15 @@ from .exceptions import AhAuthError, AhNotFoundError, AhRequestError, AhTransien
 from .models import NextOrderData, NextOrderItem, Product, ShoppingItem, ShoppingListData, _float
 
 _LOGGER = logging.getLogger(__name__)
+
 TOTAL_PRICE_QUERY = (
     "query FetchTotalPrice($products: [PriceLineItem!]!) { totalPrice(products: $products) "
     "{ withoutDiscount { amount } discount { amount } } }"
 )
 
-_LOGGER = logging.getLogger(__name__)
-
 FAVOURITE_STORE_QUERY = "query { storesFavouriteStore { id name } }"
 _STORE_CACHE_SECONDS = 6 * 3600
+
 TokenUpdateCallback = Callable[[dict[str, Any]], Awaitable[None]]
 
 
@@ -370,6 +371,7 @@ class AhShoppingApiClient:
         if not isinstance(total, dict):
             raise AhTransientError("AH returned no total price")
         return _float(total.get("withoutDiscount")), _float(total.get("discount"))
+
     async def async_get_products(self, product_ids: list[int]) -> list[Product]:
         if not product_ids:
             return []
@@ -506,6 +508,7 @@ class AhShoppingApiClient:
 
     async def async_get_store_route(self) -> tuple[str, dict[str, int]]:
         """Return the favourite store's name and each list item's route position.
+
         AH sorts Mijn lijst along the store's walking route with orderBy=store.
         Call this before the regular read so that read keeps the list sorted by
         entry, as before.
@@ -525,6 +528,7 @@ class AhShoppingApiClient:
             position = int(sorting.get("position") or index) if isinstance(sorting, dict) else index
             positions.setdefault(_route_key(raw), position)
         return name, positions
+
     async def async_get_shopping_data(self) -> ShoppingListData:
         store_name, route = "", {}
         try:
@@ -639,17 +643,6 @@ class AhShoppingApiClient:
             items=items,
             store_name=store_name,
         )
-
-def _route_key(raw: dict[str, Any]) -> str:
-    """Match an item between the store-sorted and the entry-sorted list."""
-    details = raw.get("productDetails")
-    product = details.get("product") if isinstance(details, dict) else None
-    product_id = int(raw.get("productId") or 0)
-    if not product_id and isinstance(product, dict):
-        product_id = int(product.get("webshopId") or product.get("id") or 0)
-    if product_id > 0:
-        return f"p:{product_id}"
-    return f"t:{str(raw.get('description') or '').strip().casefold()}"
         signature = result.price_signature()
         if signature:
             try:
@@ -663,3 +656,15 @@ def _route_key(raw: dict[str, Any]) -> str:
                 if before > 0:
                     result = result.priced(before, discount)
         return result
+
+
+def _route_key(raw: dict[str, Any]) -> str:
+    """Match an item between the store-sorted and the entry-sorted list."""
+    details = raw.get("productDetails")
+    product = details.get("product") if isinstance(details, dict) else None
+    product_id = int(raw.get("productId") or 0)
+    if not product_id and isinstance(product, dict):
+        product_id = int(product.get("webshopId") or product.get("id") or 0)
+    if product_id > 0:
+        return f"p:{product_id}"
+    return f"t:{str(raw.get('description') or '').strip().casefold()}"
