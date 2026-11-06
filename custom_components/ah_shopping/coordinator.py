@@ -118,7 +118,9 @@ class AhShoppingCoordinator(DataUpdateCoordinator[ShoppingListData]):
         if self._reprice_task and not self._reprice_task.done():
             self._reprice_task.cancel()
         self._reprice_task = self.hass.async_create_task(self._reprice())
+
     async def _reprice(self) -> None:
+        try:
             current = self.data
             priced = await self._async_priced(current)
         except asyncio.CancelledError:
@@ -126,6 +128,7 @@ class AhShoppingCoordinator(DataUpdateCoordinator[ShoppingListData]):
         # Drop the answer when another edit arrived while AH was pricing.
         if priced is not current and self.data is current:
             self.async_set_updated_data(priced)
+
     def _schedule_reconcile(self) -> None:
         if self._reconcile_task and not self._reconcile_task.done():
             self._reconcile_task.cancel()
