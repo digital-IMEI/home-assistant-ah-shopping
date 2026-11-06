@@ -13,7 +13,7 @@
 ```yaml
 lovelace:
   resources:
-    - url: /ah_shopping/ah-shopping-card.js?v=0.2.29
+    - url: /ah_shopping/ah-shopping-card.js?v=0.2.30
       type: module
 ```
 
