@@ -37,6 +37,7 @@ class Product:
     is_bonus: bool = False
     bonus_mechanism: str = ""
     image_url: str = ""
+    category: str = ""
 
     @classmethod
     def from_api(cls, payload: dict[str, Any]) -> "Product":
@@ -73,6 +74,7 @@ class Product:
             ),
             bonus_mechanism=str(data.get("bonusMechanism") or ""),
             image_url=best_image,
+            category=str(data.get("mainCategory") or ""),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -86,6 +88,7 @@ class Product:
             "is_bonus": self.is_bonus,
             "bonus_mechanism": self.bonus_mechanism,
             "image_url": self.image_url,
+            "category": self.category,
         }
 
 
@@ -97,6 +100,8 @@ class ShoppingItem:
     description: str = ""
     product: Product | None = None
     checked: bool = False
+    # Position in the walking route of the favourite AH store; 0 when unknown.
+    store_position: int = 0
 
     @property
     def is_product(self) -> bool:
@@ -131,8 +136,14 @@ class ShoppingItem:
         if "2E HALVE PRIJS" in mechanism:
             return (quantity // 2) * _cents(unit / 2) / 100
 
-        if "1+1GRATIS" in mechanism.replace(" ", "") or "2EGRATIS" in mechanism.replace(" ", ""):
+        if "2EGRATIS" in mechanism.replace(" ", ""):
             return round((quantity // 2) * unit, 2)
+
+        match = re.search(r"(\d+)\s*\+\s*(\d+)\s*GRATIS", mechanism)
+        if match:
+            pay, free = int(match.group(1)), int(match.group(2))
+            if pay > 0 and free > 0:
+                return round((quantity // (pay + free)) * free * unit, 2)
 
         match = re.search(r"(\d+)\s+HALEN\s+(\d+)\s+BETALEN", mechanism)
         if match:
@@ -162,6 +173,7 @@ class ShoppingItem:
             "title": self.title,
             "description": self.description,
             "checked": self.checked,
+            "store_position": self.store_position,
             "is_product": self.is_product,
             "line_total": self.line_total,
             "bonus_savings": self.bonus_savings,
@@ -208,26 +220,86 @@ def _promotion_totals(items: tuple[ShoppingItem, ...]) -> tuple[float, float]:
 
 
 @dataclass(slots=True, frozen=True)
+class AhPrice:
+    """AH's totalPrice for one set of product quantities, plus the local estimate then."""
+
+    signature: tuple[tuple[int, int], ...]
+    before_discount: float
+    discount: float
+    local_subtotal: float
+    local_payable: float
+@dataclass(slots=True, frozen=True)
 class ShoppingListData:
     list_id: str
     name: str
     items: tuple[ShoppingItem, ...] = field(default_factory=tuple)
+    store_name: str = ""
+    ah_price: AhPrice | None = None
+    # A local edit that AH is pricing right now: keep showing AH's last price.
+    reprice_pending: bool = False
 
     @property
     def total_quantity(self) -> int:
         return sum(max(item.quantity, 0) for item in self.items)
 
+    def price_signature(self) -> tuple[tuple[int, int], ...]:
+        """Product quantities that AH's totalPrice was (or would be) asked for."""
+        return tuple(sorted(
+            (item.product_id, item.quantity)
+            for item in self.items
+            if item.product_id > 0 and item.quantity > 0
+        ))
+
+    def _local_subtotal(self) -> float:
+        return round(sum(item.line_total for item in self.items), 2)
+    def _local_payable(self) -> float:
+        return round(self._local_subtotal() - _promotion_totals(self.items)[1], 2)
+    def priced(self, before_discount: float, discount: float) -> "ShoppingListData":
+        """Return a copy carrying AH's price for the current product quantities."""
+        return replace(self, reprice_pending=False, ah_price=AhPrice(
+            self.price_signature(), before_discount, discount,
+            self._local_subtotal(), self._local_payable(),
+    @property
+    def _ah_totals(self) -> tuple[float, float] | None:
+        """AH's before-discount and payable totals.
+        While AH prices a local edit, its last price stays as it is, so the
+        total changes once, straight to AH's new amount. Only when that
+        repricing failed is AH's last price shifted by the change in the local
+        estimate, which keeps segment-wide offers in the total.
+        """
+        price = self.ah_price
+        if price is None:
+            return None
+        before = price.before_discount
+        payable = price.before_discount - price.discount
+        if price.signature != self.price_signature() and not self.reprice_pending:
+            before += self._local_subtotal() - price.local_subtotal
+            payable += self._local_payable() - price.local_payable
+        before = max(0.0, before)
+        return before, min(before, max(0.0, payable))
+    def price_source(self) -> str:
+        if self.ah_price is None:
+            return "estimate"
+        if self.ah_price.signature == self.price_signature():
+            return "ah"
+        return "ah_pending" if self.reprice_pending else "ah_adjusted"
     @property
     def subtotal(self) -> float:
-        return round(sum(item.line_total for item in self.items), 2)
+        if ah := self._ah_totals:
+            return round(ah[0], 2)
+        return self._local_subtotal()
 
     @property
     def bonus_savings(self) -> float:
+        if ah := self._ah_totals:
+            return round(max(0.0, ah[0] - ah[1]), 2)
         return round(sum(_promotion_totals(self.items)), 2)
 
     @property
     def estimated_total(self) -> float:
-        return round(self.subtotal - _promotion_totals(self.items)[1], 2)
+        if ah := self._ah_totals:
+            return round(ah[1], 2)
+        return self._local_payable()
 
     def quantity_for_product(self, product_id: int) -> int:
         item = self.item_for_product(product_id)
@@ -307,6 +379,8 @@ class ShoppingListData:
             "subtotal": self.subtotal,
             "bonus_savings": self.bonus_savings,
             "estimated_total": self.estimated_total,
+            "store_name": self.store_name,
+            "price_source": self.price_source,
             "items": [item.as_dict() for item in self.items],
         }
 
