@@ -2,7 +2,7 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
-### Unreleased
+### 0.2.30
 
 - Consolidates contributions #1, #2, #3, #7, #8, #9 and #10.
 - Adds photo-based barcode scanning on plain-HTTP dashboards, and visibility-aware list refresh with a shared 30-second throttle.
