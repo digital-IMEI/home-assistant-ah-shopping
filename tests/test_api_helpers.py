@@ -361,6 +361,10 @@ def test_store_route_positions_are_matched_to_list_items():
             assert "storesFavouriteStore" in query
             return {"storesFavouriteStore": {"id": 4321, "name": "Teststad Centrum"}}
 
+        async def async_get_total_price(self, lines):
+            # This test validates store routing; do not call the unrelated AH pricing API.
+            raise AhTransientError("pricing unavailable in route fixture")
+
         async def _raw_request(self, method, path, **kwargs):
             self.paths.append(path)
             store_sorted = "orderBy=store" in path
@@ -403,6 +407,10 @@ def test_list_still_loads_when_store_route_fails():
 def _priced_list_client(total_price):
     class PricedClient(AhShoppingApiClient):
         lines = None
+
+        async def async_get_store_route(self):
+            # Pricing tests should not need an AH account/favourite store.
+            return "", {}
 
         async def async_get_list_payload(self):
             return {"id": "my-list", "items": [
