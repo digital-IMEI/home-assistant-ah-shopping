@@ -7,7 +7,8 @@ from custom_components.ah_shopping.const import (
     SHOPPINGLIST_ITEMS_PATH,
     SHOPPINGLIST_ITEMS_READ_PATH,
 )
-from custom_components.ah_shopping.exceptions import AhAuthError, AhRequestError
+from custom_components.ah_shopping.exceptions import AhAuthError, AhRequestError, AhTransientError
+from custom_components.ah_shopping.models import Product
 
 
 def test_extract_code_plain():
@@ -82,6 +83,12 @@ def test_quantity_update_uses_v2_patch_and_zero_deletes():
 
 def test_current_list_shape_reads_nested_product_and_text_item():
     class ListClient(AhShoppingApiClient):
+        async def async_get_store_route(self):
+            return "", {}
+
+        async def async_get_total_price(self, lines):
+            raise AhTransientError("not priced in this test")
+
         async def async_get_list_payload(self):
             return {
                 "id": "my-list",
@@ -123,6 +130,12 @@ def test_current_list_shape_reads_nested_product_and_text_item():
 
 def test_missing_bulk_product_uses_detail_price_fallback():
     class ListClient(AhShoppingApiClient):
+        async def async_get_store_route(self):
+            return "", {}
+
+        async def async_get_total_price(self, lines):
+            raise AhTransientError("not priced in this test")
+
         async def async_get_list_payload(self):
             return {
                 "id": "my-list",
@@ -338,3 +351,140 @@ def test_next_order_without_fulfillment_is_empty():
     assert order.total_quantity == 0
     assert order.items == ()
 
+
+
+def test_store_route_positions_are_matched_to_list_items():
+    class RouteClient(AhShoppingApiClient):
+        paths = []
+
+        async def _graphql(self, query, variables=None):
+            assert "storesFavouriteStore" in query
+            return {"storesFavouriteStore": {"id": 4321, "name": "Teststad Centrum"}}
+
+        async def async_get_total_price(self, lines):
+            # This test validates store routing; do not call the unrelated AH pricing API.
+            raise AhTransientError("pricing unavailable in route fixture")
+
+        async def _raw_request(self, method, path, **kwargs):
+            self.paths.append(path)
+            store_sorted = "orderBy=store" in path
+            return {"id": "my-list", "items": [
+                {"quantity": 1, "sorting": {"position": 2 if store_sorted else 1},
+                 "productDetails": {"product": {"webshopId": 7, "title": "Yoghurt"}}},
+                {"quantity": 1, "description": "Iets lekkers", "sorting": {"position": 1 if store_sorted else 2}},
+            ]}
+
+        async def async_get_products(self, product_ids):
+            return []
+
+    client = RouteClient(None)
+    data = asyncio.run(client.async_get_shopping_data())
+    assert client.paths[0].endswith("orderBy=store&orderByParam=4321")
+    assert client.paths[1] == SHOPPINGLIST_ITEMS_READ_PATH
+    assert data.store_name == "Teststad Centrum"
+    assert {i.title: i.store_position for i in data.items} == {"Yoghurt": 2, "Iets lekkers": 1}
+    assert data.as_dict()["items"][0]["store_position"] == 2
+    asyncio.run(client.async_get_shopping_data())
+    assert sum("orderBy=store" in path for path in client.paths) == 2
+
+
+def test_list_still_loads_when_store_route_fails():
+    class NoStoreClient(AhShoppingApiClient):
+        async def async_get_store_route(self):
+            raise AhRequestError("no store")
+
+        async def async_get_list_payload(self):
+            return {"id": "my-list", "items": [{"quantity": 1, "description": "Brood"}]}
+
+        async def async_get_products(self, product_ids):
+            return []
+
+    data = asyncio.run(NoStoreClient(None).async_get_shopping_data())
+    assert [i.store_position for i in data.items] == [0]
+    assert data.store_name == ""
+
+
+def _priced_list_client(total_price):
+    class PricedClient(AhShoppingApiClient):
+        lines = None
+
+        async def async_get_store_route(self):
+            # Pricing tests should not need an AH account/favourite store.
+            return "", {}
+
+        async def async_get_list_payload(self):
+            return {"id": "my-list", "items": [
+                {"quantity": 3, "productDetails": {"product": {"webshopId": 11, "title": "Plantaardig A"}}},
+                {"quantity": 1, "productDetails": {"product": {"webshopId": 12, "title": "Plantaardig B"}}},
+                {"quantity": 1, "description": "Iets lekkers"},
+            ]}
+
+        async def async_get_products(self, product_ids):
+            return [Product(id=11, title="Plantaardig A", price_now=2.89, is_bonus=True, bonus_mechanism="2e gratis"),
+                    Product(id=12, title="Plantaardig B", price_now=2.99, is_bonus=True, bonus_mechanism="2e gratis")]
+
+        async def async_get_total_price(self, lines):
+            self.lines = lines
+            return await total_price()
+
+    return PricedClient(None)
+
+
+def test_list_total_uses_ah_total_price():
+    async def ah_price():
+        return 11.66, 5.78
+
+    client = _priced_list_client(ah_price)
+    data = asyncio.run(client.async_get_shopping_data())
+    assert client.lines == [(11, 3), (12, 1)]
+    assert data.price_source == "ah"
+    assert (data.subtotal, data.bonus_savings, data.estimated_total) == (11.66, 5.78, 5.88)
+    assert data.as_dict()["price_source"] == "ah"
+
+
+def test_list_total_falls_back_to_estimate_when_ah_cannot_price():
+    async def unavailable():
+        raise AhTransientError("down")
+
+    data = asyncio.run(_priced_list_client(unavailable).async_get_shopping_data())
+    assert data.price_source == "estimate"
+    assert data.subtotal == 11.66
+
+
+def test_list_total_auth_error_is_not_swallowed():
+    async def rejected():
+        raise AhAuthError("expired")
+
+    with pytest.raises(AhAuthError):
+        asyncio.run(_priced_list_client(rejected).async_get_shopping_data())
+
+
+def test_local_edit_keeps_ah_total_shifted_by_the_local_change():
+    async def ah_price():
+        return 11.66, 5.78
+
+    data = asyncio.run(_priced_list_client(ah_price).async_get_shopping_data())
+    # One more B: +2.99 before discount; locally that second B is free, so payable is unchanged.
+    edited = data.with_product_quantity(12, 2)
+    assert edited.price_source == "ah_adjusted"
+    assert (edited.subtotal, edited.estimated_total, edited.bonus_savings) == (14.65, 5.88, 8.77)
+    # Removing A entirely moves the totals by A's local amounts; a short-lived
+    # approximation until AH prices the new list, but never negative.
+    removed = data.with_product_quantity(11, 0)
+    assert removed.subtotal == 2.99 and 0 <= removed.estimated_total <= removed.subtotal
+    # Back to the priced quantities: exact AH price again.
+    assert edited.with_product_quantity(12, 1).price_source == "ah"
+
+
+def test_total_price_query_parses_amounts():
+    class GraphClient(AhShoppingApiClient):
+        variables = None
+
+        async def _graphql(self, query, variables=None):
+            assert "totalPrice" in query
+            self.variables = variables
+            return {"totalPrice": {"withoutDiscount": {"amount": 50.53}, "discount": {"amount": 19.65}}}
+
+    client = GraphClient(None)
+    assert asyncio.run(client.async_get_total_price([(1, 2)])) == (50.53, 19.65)
+    assert client.variables == {"products": [{"id": 1, "quantity": 2}]}

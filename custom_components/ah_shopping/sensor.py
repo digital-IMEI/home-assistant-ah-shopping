@@ -35,7 +35,11 @@ class AhShoppingListSensor(AhShoppingEntity, SensorEntity):
         data["last_synced"] = self.coordinator.last_synced_at
         data["pending_changes"] = self.coordinator.pending_change_count
         data["update_interval_seconds"] = int(self.coordinator.update_interval.total_seconds())
-        data["total_note"] = "Total includes supported multi-buy Bonus calculations"
+        data["total_note"] = (
+            "Total and Bonus as calculated by Albert Heijn"
+            if self.coordinator.data.price_source == "ah"
+            else "Total includes supported multi-buy Bonus calculations"
+        )
         return data
 
 class AhShoppingTotalSensor(AhShoppingEntity, SensorEntity):

@@ -29,7 +29,7 @@ npx playwright install --with-deps chromium
 npm run test:frontend
 ```
 
-The browser tests cover retained rows/scroll/focus, scanner lifecycle, bundled WASM loading and decoding, failure recovery, cooldowns, undoable removals and scanner-feed expiry.
+The browser tests cover retained rows/scroll/focus, scanner lifecycle, bundled WASM loading and decoding, failure recovery, cooldowns, undoable removals and scanner-feed expiry. The additional frontend suites test HTTP photo scanning and refresh, checked-item controls, product search, department/store sorting, full-screen layout and swipe gestures. Python tests also cover checked bulk actions, pricing fallback and AH store-route data.
 
 The **Validate** workflow also runs frontend syntax checks, documentation checks through pytest, HACS custom-repository validation and Hassfest. The separate **Publication checks** workflow runs strict HACS validation without metadata ignores.
 
