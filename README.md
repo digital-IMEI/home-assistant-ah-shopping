@@ -16,16 +16,16 @@ A custom integration with a bundled dashboard card for AH **Mijn lijst**, produc
 
 ## What it does
 
-- **Editable shopping list:** view AH Mijn lijst, add products by barcode or action, adjust quantities and remove products.
-- **Product details:** images, unit sizes, current prices, previous prices and Bonus labels.
+- **Editable shopping list:** view AH Mijn lijst, search or scan products, adjust quantities, mark items completed, restore or remove completed items, and swipe to remove on touch screens.
+- **Product details:** images, unit sizes, current prices, previous prices and Bonus labels; optional sorting by department or favourite-store walking route.
 - **Scheduled order:** read-only products, quantities and delivery date/time.
 - **Combined overview:** merge identical products from the list and the next order, while keeping ordered and extra quantities separate.
 - **Camera barcode scanner:** on-demand, automatically active on entering a dashboard, or a permanent feed.
 - **Fast local decoding:** bundled ZXing-C++/WebAssembly in a background worker, with alternative decoders for different devices.
 - **Scan feedback:** a locally generated checkout-style beep, a green scan line during the 1.2-second successful-add cooldown, and a recent-product feed with quantity controls.
-- **Comfortable editing:** stable rows and scroll position; four seconds to undo a last-quantity removal with the plus button, followed by a smooth collapse.
+- **Comfortable editing:** stable rows and scroll position; four seconds to undo a last-quantity removal, including swipe gestures; Appie-style mobile rows and optional full-screen height.
 - **Automation support:** sensors, a read-only native To-do list, and actions for search, lookup, quantities and refresh.
-- **Account synchronisation:** configurable polling and protected recent writes to reduce stale refresh conflicts.
+- **Account synchronisation:** configurable polling and protected recent writes, plus refresh when a visible list opens and every 60 seconds while visible (throttled to once per 30 seconds across cards).
 
 ### Important: list, cart and order
 
@@ -40,7 +40,7 @@ In the combined view, the ordered quantity is a read-only minimum. Minus removes
 - Home Assistant **2026.8.2 or newer**.
 - An Albert Heijn Netherlands account and internet access to AH.
 - HACS, or a manual custom-integration installation.
-- For scanning: a camera and browser camera permission. Use **HTTPS** (or another browser-approved secure context); a working camera preview is device/browser-dependent.
+- For live scanning: a camera, browser camera permission and **HTTPS** (or another secure context). On plain HTTP, the scan button offers photo-based barcode decoding instead of a live preview.
 - One AH account per installation is recommended. Multi-account action routing is not supported.
 
 ### HACS — recommended
@@ -127,7 +127,7 @@ Open the integration's **Configure** screen.
 
 | Setting | Default | Range / behaviour |
 | --- | --- | --- |
-| Full update interval | 5 minutes | 1–60 minutes. Successful writes update locally and trigger reconciliation between full polls. |
+| Full update interval | 5 minutes | 1–60 minutes. Successful writes update locally and trigger reconciliation. A visible shopping-list card additionally requests a refresh on appearance and every 60 seconds, globally throttled to 30 seconds. |
 
 ### Dashboard card
 
@@ -146,6 +146,9 @@ Most settings are available in the visual card editor. `entity` is an optional Y
 | `scan_zoom` | `2` | 1×–4×; editor steps of 0.25. Hardware zoom when available, otherwise a digital crop. |
 | `scan_decoder` | `auto` | `auto`, `wasm`, `zxing`, `native`, `local`; see below. |
 | `scan_label` | `Scan product` | Text on the scan button. |
+| `show_search` | `false` | Optional inline AH product search and add controls. Search starts after 0.8 seconds of inactivity or Enter; select a quantity and confirm or wait 2 seconds. |
+| `sort` | `input` | `input` preserves list order; `department` groups products under department headings; `store` follows the Appie app's favourite-store route, falling back to departments if unavailable. |
+| `fill_screen` | `false` | Size the card to the available screen height below the header, respecting mobile safe-area insets; otherwise keep dashboard grid layout. |
 
 Legacy `product_source: cart` / `cart_and_order` map to `shopping_list` / `shopping_list_and_order`. Legacy `mode: scan_only` remains compatible.
 
@@ -186,7 +189,7 @@ Entity IDs depend on Home Assistant naming and existing installations; use the i
 | Albert Heijn Shopping Bonus Savings | List-only Bonus savings; zero is correct if the list has no supported discounted products. |
 | Albert Heijn Next Order | Next scheduled order quantity; products, delivery slot, status, cut-off and price attributes. |
 | Albert Heijn Next Order Bonus Savings | Calculated savings belonging to the order, separate from the list. |
-| Albert Heijn Shopping Cart To-do | Read-only native Home Assistant To-do representation. Edit products through the custom card or integration actions. |
+| Albert Heijn Shopping Cart To-do | Read-only native Home Assistant To-do representation. Struck-through products show as completed; edit through the custom card or integration actions. |
 
 ### Actions
 
@@ -201,6 +204,8 @@ All action names use the `ah_shopping` domain. Search and lookup require a respo
 | `set_quantity` | `product_id`, `quantity` (0–99) | — | Set absolute list quantity; 0 removes it immediately. |
 | `remove_product` | `product_id` | — | Remove from the list immediately. |
 | `refresh` | — | — | Request a list refresh. |
+| `restore_checked` | — | — | Restore all struck-through products on Mijn lijst; returns `count`. |
+| `remove_checked` | — | — | Delete all struck-through products on Mijn lijst; returns `count`. Confirmation is shown by the card. |
 
 The four-second undo is a **card feature**; direct actions do not delay removals. Actions operate on the first loaded AH account.
 
@@ -216,9 +221,9 @@ Example for a script or automation action sequence:
 
 ## Prices and Bonus: what the total means
 
-Totals are calculated **product totals**, not guaranteed final checkout invoices. The order card uses `estimated_product_total` when available; AH's `total_price` remains a separate sensor attribute. Delivery charges, deposits, unavailable products, substitutions and promotions the integration cannot interpret may cause differences.
+The shopping-list **subtotal, Bonus savings and estimated total** now use AH's own GraphQL `totalPrice` calculation for the complete set of product quantities. This supports mixed-product offers such as “2 voor €5,50” without guessing promotion groups locally. The shopping-list sensor exposes `price_source`: `ah`, `ah_pending`, `ah_adjusted` or `estimate`.
 
-Supported calculations include current discounted unit prices, second half price, 1+1 free, “N halen M betalen” and “N voor X”. Mixed-product promotions are grouped only for the specifically implemented Big Americans pizza offer, not merely because two products share the same Bonus text. Unknown/personalised promotion rules are not guaranteed.
+If AH's pricing endpoint is unavailable, the integration falls back to locally supported offers, including “N + M gratis” (e.g. 2 + 1), second half price, “N halen M betalen” and “N voor X”. Individual product savings and next-order estimates remain local estimates. Checkout invoices can still differ due to delivery charges, deposits, substitutions or other AH-specific conditions. Do not assume per-product Bonus amounts add up to the list's AH-calculated total.
 
 Read the [troubleshooting guide](docs/TROUBLESHOOTING.md) before reporting a difference, and never publish account identifiers, addresses or authorization data.
 
