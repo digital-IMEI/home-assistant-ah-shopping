@@ -4,14 +4,15 @@ Historical entries describe the behaviour of that version; the [README](README.m
 
 ### 0.2.30
 
-- Consolidates contributions #1, #2, #3, #7, #8, #9 and #10.
-- Adds photo-based barcode scanning on plain-HTTP dashboards, and visibility-aware list refresh with a shared 30-second throttle.
-- Displays struck-through items, maps them to completed To-do entries, and adds bulk restore/remove actions.
-- Calculates generic `N + M gratis` promotions in the local fallback.
-- Adds optional inline product search (`show_search`) with quantity selection and AH product lookup.
-- Adds optional sorting (`sort: input | department | store`) using AH department metadata and the favourite-store walking route.
-- Uses AH's own `totalPrice` calculation for list subtotal and Bonus savings, including mixed-product promotions, with a resilient local fallback and `price_source` attribute.
-- Adds optional mobile screen fitting (`fill_screen`), Appie-style item display and swipe-to-remove with undo.
+Contributions by **[@Tosko4](https://github.com/Tosko4)** and **[@Jochemp88](https://github.com/Jochemp88)**, integrated in [#11](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/11).
+
+- **[@Tosko4](https://github.com/Tosko4) ([#1](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/1)):** Adds photo-based barcode scanning on plain-HTTP dashboards and visibility-aware shopping-list refresh with a shared 30-second throttle.
+- **[@Jochemp88](https://github.com/Jochemp88) ([#2](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/2)):** Displays struck-through items, maps them to completed To-do entries, and adds bulk restore/remove actions.
+- **[@Jochemp88](https://github.com/Jochemp88) ([#3](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/3)):** Calculates generic `N + M gratis` promotions in the local fallback.
+- **[@Jochemp88](https://github.com/Jochemp88) ([#7](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/7)):** Adds optional inline product search (`show_search`) with quantity selection and AH product lookup.
+- **[@Jochemp88](https://github.com/Jochemp88) ([#8](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/8)):** Adds optional sorting (`sort: input | department | store`) using AH department metadata and the favourite-store walking route.
+- **[@Jochemp88](https://github.com/Jochemp88) ([#9](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/9)):** Uses AH's own `totalPrice` calculation for list subtotal and Bonus savings, including mixed-product promotions, with local fallback and `price_source`.
+- **[@Jochemp88](https://github.com/Jochemp88) ([#10](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/10)):** Adds optional mobile screen fitting (`fill_screen`), Appie-style item display and swipe-to-remove with undo.
 - Extends Python, browser and CI regression coverage for the combined features.
 
 ### 0.2.29
