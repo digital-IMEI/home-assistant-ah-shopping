@@ -148,7 +148,7 @@ Most settings are available in the visual card editor. `entity` is an optional Y
 | `scan_label` | `Scan product` | Text on the scan button. |
 | `show_search` | `false` | Optional inline AH product search and add controls. Search starts after 0.8 seconds of inactivity or Enter; select a quantity and confirm or wait 2 seconds. |
 | `sort` | `input` | `input` preserves list order; `department` groups products under department headings; `store` follows the Appie app's favourite-store route, falling back to departments if unavailable. |
-| `fill_screen` | `false` | Size the card to the available screen height below the header, respecting mobile safe-area insets; otherwise keep dashboard grid layout. |
+| `fill_screen` | `false` | Let the card take the room its content needs, growing up to the screen height below the header (respecting mobile safe-area insets) before the list scrolls. The camera view keeps the full height. Otherwise the dashboard grid layout applies. |
 
 Legacy `product_source: cart` / `cart_and_order` map to `shopping_list` / `shopping_list_and_order`. Legacy `mode: scan_only` remains compatible.
 

@@ -2,6 +2,10 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
+### Unreleased
+
+- `fill_screen` now takes only the room the content needs and grows up to the screen height, instead of always filling the screen; a short list no longer leaves an empty block. The camera view keeps the full height.
+
 ### 0.2.30
 
 Contributions by **[@Tosko4](https://github.com/Tosko4)** and **[@Jochemp88](https://github.com/Jochemp88)**, integrated in [#11](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/11).
