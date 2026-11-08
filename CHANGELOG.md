@@ -5,6 +5,7 @@ Historical entries describe the behaviour of that version; the [README](README.m
 ### Unreleased
 
 - `fill_screen` now takes only the room the content needs and grows up to the screen height, instead of always filling the screen; a short list no longer leaves an empty block. On phones the card does not scroll by itself, so one swipe scrolls the whole page past stacked cards. The camera view keeps the full height.
+- Phones: the card header keeps the title on one line, gives the delivery line the full width and moves the savings to their own line, so the delivery time is no longer cut off.
 
 ### 0.2.30
 

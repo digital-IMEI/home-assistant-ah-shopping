@@ -70,6 +70,7 @@ jobs:
       - run: node tests/frontend-sort.cjs
       - run: node tests/frontend-fill.cjs
       - run: node tests/frontend-swipe.cjs
+      - run: node tests/frontend-header.cjs
 
   hassfest:
     runs-on: ubuntu-latest
