@@ -4,7 +4,7 @@ Historical entries describe the behaviour of that version; the [README](README.m
 
 ### Unreleased
 
-- `fill_screen` now takes only the room the content needs and grows up to the screen height, instead of always filling the screen; a short list no longer leaves an empty block. The camera view keeps the full height.
+- `fill_screen` now takes only the room the content needs and grows up to the screen height, instead of always filling the screen; a short list no longer leaves an empty block. On phones the card does not scroll by itself, so one swipe scrolls the whole page past stacked cards. The camera view keeps the full height.
 
 ### 0.2.30
 

@@ -3,7 +3,7 @@ const assert=require('node:assert/strict'),path=require('node:path');
 (async()=>{
  const browser=await chromium.launch({headless:true,args:['--no-sandbox']});
  try{
-  const page=await browser.newPage({viewport:{width:400,height:800}});
+  const page=await browser.newPage({viewport:{width:800,height:800}});
   await page.setContent('<style>body{margin:0}</style>');
   await page.addScriptTag({path:path.resolve(__dirname,'../custom_components/ah_shopping/frontend/ah-shopping-card.js')});
   const result=await page.evaluate(async()=>{
@@ -42,7 +42,23 @@ const assert=require('node:assert/strict'),path=require('node:path');
    const compactStaysSmall=scanOnly.getGridOptions().rows===2;
    return {defaultRows,autoRows,shrinksToContent,growsToScreen,listScrolls,insetRespected,scannerFullHeight,compactStaysSmall};
   });
+  const phonePage=await browser.newPage({viewport:{width:375,height:700}});
+  await phonePage.setContent('<style>body{margin:0}</style>');
+  await phonePage.addScriptTag({path:path.resolve(__dirname,'../custom_components/ah_shopping/frontend/ah-shopping-card.js')});
+  Object.assign(result,await phonePage.evaluate(async()=>{
+   const list=n=>({states:{list:{last_updated:String(n),attributes:{ah_shopping_list:true,items:Array.from({length:n},(_,i)=>({product_id:i+1,title:`Product ${i+1}`,quantity:1}))}}}});
+   const card=document.createElement('ah-shopping-card');card.setConfig({show_scan:false,fill_screen:true});document.body.append(card);card.hass=list(40);
+   await new Promise(r=>requestAnimationFrame(r));
+   const items=card.shadowRoot.querySelector('.items');
+   const phoneCardAsLongAsList=card.getBoundingClientRect().height>700&&items.scrollHeight<=items.clientHeight+1;
+   const phonePageScrolls=document.documentElement.scrollHeight>700;
+   card.remove();
+   const cam=document.createElement('ah-shopping-card');cam.setConfig({show_scan:false,fill_screen:true,scanner_mode:'permanent'});document.body.append(cam);cam.hass=list(1);
+   const phoneCameraFullHeight=Math.round(cam.getBoundingClientRect().height)===700-56-32;
+   cam.remove();
+   return {phoneCardAsLongAsList,phonePageScrolls,phoneCameraFullHeight};
+  }));
   for(const [key,value] of Object.entries(result))assert.equal(value,true,key);
-  console.log('PASS: fill_screen takes only the room it needs, grows to the screen minus safe-area insets, keeps the list scrolling and the camera full height');
+  console.log('PASS: fill_screen takes only the room it needs, grows to the screen minus safe-area insets, keeps the list scrolling and the camera full height; on phones the page scrolls instead of the card');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
