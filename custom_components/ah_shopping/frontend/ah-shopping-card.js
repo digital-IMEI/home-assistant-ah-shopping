@@ -325,9 +325,10 @@ class AhShoppingCard extends HTMLElement {
     // being packed; track & trace (IN_TRANSIT, DELIVERED) and the order state tell the later steps.
     if(!Number(order?.order_id||0)&&!(order?.items||[]).length)return 0;
     const type=String(order.tracking_type||'').toUpperCase(),state=String(order.order_state||'').toUpperCase();
-    if(/DELIVERED|COMPLETED/.test(`${type} ${state}`))return 4;
-    if(/TRANSIT|ROUTE|DRIV|NEAR|UNDERWAY/.test(type)||/OUT_FOR_DELIVERY/.test(state))return 3;
-    if(/PREPAR|PICK|PACK/.test(type)||/PLANNED_FOR_DELIVERY/.test(state)||order.is_after_cut_off===true)return 2;
+    // Whole codes only: a state such as UNDELIVERED must not count as delivered.
+    if(['DELIVERED','COMPLETED'].includes(type)||['DELIVERED','COMPLETED'].includes(state))return 4;
+    if(['IN_TRANSIT','UNDERWAY','ON_ROUTE','NEARBY'].includes(type)||state==='OUT_FOR_DELIVERY')return 3;
+    if(['PREPARING','PICKING','PACKING'].includes(type)||state==='PLANNED_FOR_DELIVERY'||order.is_after_cut_off===true)return 2;
     return 1;
   }
   _orderQueue(order){

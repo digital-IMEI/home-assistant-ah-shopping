@@ -22,7 +22,7 @@ from .const import (
     TOKEN_REFRESH_MARGIN, USER_AGENT,
 )
 from .exceptions import AhAuthError, AhNotFoundError, AhRequestError, AhTransientError
-from .models import NextOrderData, NextOrderItem, Product, ShoppingItem, ShoppingListData, _float
+from .models import AH_TIMEZONE, NextOrderData, NextOrderItem, Product, ShoppingItem, ShoppingListData, _float, _int
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -369,18 +369,27 @@ class AhShoppingApiClient:
                 _LOGGER.debug("AH %s unavailable: %s", name, err)
                 return None
 
-        data = await optional("order discount", ORDER_DISCOUNT_QUERY)
-        for row in ((data or {}).get("orderFulfillments") or {}).get("result") or []:
-            if isinstance(row, dict) and int(row.get("orderId") or 0) == order_id:
+        async def skipped():
+            return None
+
+        # The live ETA only exists around delivery day (AH's dates are Dutch); skip the call otherwise.
+        today = datetime.now(AH_TIMEZONE).date().isoformat()
+        track = not delivery_date or delivery_date <= today
+        # The three requests are independent, so run them together.
+        discount_data, tracking_data, limits_data = await asyncio.gather(
+            optional("order discount", ORDER_DISCOUNT_QUERY),
+            optional("track and trace", ORDER_TRACK_TRACE_QUERY, {"orderId": order_id}) if track else skipped(),
+            optional("order value limits", ORDER_VALUE_LIMITS_QUERY, {"orderId": order_id}),
+        )
+
+        for row in ((discount_data or {}).get("orderFulfillments") or {}).get("result") or []:
+            if isinstance(row, dict) and _int(row.get("orderId")) == order_id:
                 amount = (((row.get("totalPrice") or {}).get("discount") or {}).get("amount"))
                 if amount is not None:
                     extras["ah_discount"] = _float(amount)
 
-        # The live ETA only exists around delivery day; skip the call otherwise.
-        today = datetime.now().date().isoformat()
-        if not delivery_date or delivery_date <= today:
-            data = await optional("track and trace", ORDER_TRACK_TRACE_QUERY, {"orderId": order_id})
-            tracking = ((((data or {}).get("order") or {}).get("delivery") or {}).get("trackAndTraceV2")) or {}
+        if track:
+            tracking = ((((tracking_data or {}).get("order") or {}).get("delivery") or {}).get("trackAndTraceV2")) or {}
             if isinstance(tracking, dict):
                 eta = ((tracking.get("etaBlock") or {}).get("range")) or {}
                 extras["tracking_type"] = str(tracking.get("type") or "")
@@ -389,8 +398,7 @@ class AhShoppingApiClient:
                     extras["eta_start"] = str(eta.get("start") or "")
                     extras["eta_end"] = str(eta.get("end") or "")
 
-        data = await optional("order value limits", ORDER_VALUE_LIMITS_QUERY, {"orderId": order_id})
-        limits = (data or {}).get("orderValueLimits")
+        limits = (limits_data or {}).get("orderValueLimits")
         if isinstance(limits, dict):
             extras["minimum_order_value"] = _float(limits.get("minimumOrderValue"))
             if limits.get("submittable") is not None:

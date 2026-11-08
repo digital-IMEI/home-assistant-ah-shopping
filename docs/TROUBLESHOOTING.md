@@ -63,7 +63,7 @@ Overlay expiry is separate: newest product 10 seconds; five seconds after becomi
 First distinguish **Mijn lijst**, **next order** and the **combined** view. Their totals and savings represent different product sets.
 
 - The list savings sensor does not include order savings; use the separate Next Order Bonus Savings sensor.
-- The order card uses calculated product totals, not necessarily AH's final checkout amount.
+- For the **next order**, `price_source: ah` means the total and Bonus come from AH's order (`totalPrice` and `discount`); deposits, bags and saving stamps appear in AH's total once the order is out for delivery. With `estimate` the order card uses calculated product totals, not necessarily AH's final checkout amount.
 - For **Mijn lijst**, check the `price_source` sensor attribute: `ah` uses AH's price calculation; `ah_pending` is waiting for a repricing; `ah_adjusted` reflects a local change since the last AH price; `estimate` uses only local promotion rules.
 - Check quantities, current/previous prices, promotion text and the order cut-off. The local fallback estimates `N + M gratis` and other common offers; AH pricing handles mixed-product deals.
 - Unit discounts already embedded in the current price are not subtracted twice.

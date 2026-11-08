@@ -111,3 +111,11 @@ def test_customers_ahead_from_track_and_trace_message():
     assert ahead("Je bent de eerstvolgende. Onze bezorger verwacht tussen 16:40 en 17:10 uur bij je te zijn.") == 0
     assert ahead("Onze bezorger verwacht vandaag tussen 16:55 en 17:55 uur bij je te zijn.") is None
     assert NextOrderData(order_id=1, tracking_message="Er zijn nog 2 klanten voor je.").as_dict()["customers_ahead"] == 2
+
+
+def test_odd_order_id_in_discount_answer_is_ignored():
+    odd = dict(EXTRAS, OrderDiscounts={"orderFulfillments": {"result": [
+        {"orderId": "not-a-number", "totalPrice": {"discount": {"amount": 9.99}}},
+        {"orderId": 300, "totalPrice": {"discount": {"amount": 21.47}}}]}})
+    order = asyncio.run(_client(odd).async_get_next_order())
+    assert order.ah_discount == 21.47 and order.eta_start.endswith("15:55:00Z")

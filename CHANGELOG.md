@@ -9,7 +9,7 @@ Historical entries describe the behaviour of that version; the [README](README.m
 - Next order: exposes AH's minimum order value, the amount still needed, whether the order can be submitted, the order state code and the order method.
 - Next-order card: a progress bar Besteld › Inpakken › Onderweg › Geleverd, as in the Appie app, from AH's track & trace type (`--ah-progress-color`).
 - Next order: while the driver is out, `customers_ahead` holds the number of stops before yours from AH's track & trace message (0 when you are next), and the card shows it below the progress bar.
-- Each of these is requested separately, so an unavailable field never affects the order itself.
+- Each of these is requested separately (in parallel), so an unavailable field never affects the order itself. Times from track & trace are UTC and are shown in Dutch time.
 
 ### 0.2.30
 
