@@ -9,10 +9,10 @@ const assert=require('node:assert/strict'),path=require('node:path');
   const result=await page.evaluate(()=>{
    const card=document.createElement('ah-shopping-card');card.setConfig({show_scan:false,product_source:'next_order'});document.body.append(card);
    let seq=0;
-   const show=type=>{card.hass={states:{order:{last_updated:String(++seq),attributes:{ah_next_order:true,order_id:300,tracking_type:type,items:[{product_id:1,title:'Melk',quantity:1}]}}}};
+   const show=(type,extra={})=>{card.hass={states:{order:{last_updated:String(++seq),attributes:{ah_next_order:true,order_id:300,tracking_type:type,items:[{product_id:1,title:'Melk',quantity:1}],...extra}}}};
      const bar=card.shadowRoot.querySelector('.orderProgress');
      return bar?`${bar.querySelectorAll('.done').length}:${bar.querySelector('.current .stepLabel').textContent}`:'none';};
-   const steps={none:show(''),planned:show('PLANNED'),preparing:show('PREPARING'),transit:show('IN_TRANSIT'),delivered:show('DELIVERED')};
+   const steps={none:show(''),planned:show('PLANNED'),afterCutOff:show('',{is_after_cut_off:true}),sentToLogistics:show('PLANNED',{order_state:'PLANNED_FOR_DELIVERY'}),preparing:show('PREPARING'),transit:show('IN_TRANSIT',{order_state:'PLANNED_FOR_DELIVERY'}),delivered:show('DELIVERED'),deliveredState:show('',{order_state:'DELIVERED'})};
    const node=card.shadowRoot.querySelector('.orderProgress');show('IN_TRANSIT');
    const retained=node===card.shadowRoot.querySelector('.orderProgress');
    card.hass={states:{order:{last_updated:String(++seq),attributes:{ah_next_order:true,items:[]}}}};
@@ -23,8 +23,8 @@ const assert=require('node:assert/strict'),path=require('node:path');
    const listHasNoBar=!list.shadowRoot.querySelector('.orderProgress');
    return {steps,retained,noOrderNoBar,listHasNoBar};
   });
-  assert.deepEqual(result.steps,{none:'1:Besteld',planned:'1:Besteld',preparing:'2:Inpakken',transit:'3:Onderweg',delivered:'4:Geleverd'});
+  assert.deepEqual(result.steps,{none:'1:Besteld',planned:'1:Besteld',afterCutOff:'2:Inpakken',sentToLogistics:'2:Inpakken',preparing:'2:Inpakken',transit:'3:Onderweg',delivered:'4:Geleverd',deliveredState:'4:Geleverd'});
   for(const key of ['retained','noOrderNoBar','listHasNoBar'])assert.equal(result[key],true,key);
-  console.log('PASS: order progress Besteld, Inpakken, Onderweg and Geleverd from the track & trace type; only for an existing order');
+  console.log('PASS: order progress Besteld, Inpakken, Onderweg and Geleverd from the cut-off, order state and track & trace type, centred labels; only for an existing order');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});
