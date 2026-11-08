@@ -7,13 +7,15 @@ from datetime import datetime, timezone
 import json
 import logging
 import time
-import logging
 from typing import Any
 from urllib.parse import parse_qs, quote, urlencode, urlparse
 
 from aiohttp import ClientError, ClientResponse, ClientSession
 
 from .const import (
+    ORDER_DISCOUNT_QUERY,
+    ORDER_TRACK_TRACE_QUERY,
+    ORDER_VALUE_LIMITS_QUERY,
     API_BASE_URL, APPLICATION, BASE_FULFILLMENTS_QUERY, CLIENT_ID,
     CLIENT_VERSION, LOGIN_BASE_URL, NEXT_ORDER_FULFILLMENTS_QUERY,
     SHOPPINGLIST_ITEMS_PATH, SHOPPINGLIST_ITEMS_READ_PATH,
@@ -326,6 +328,10 @@ class AhShoppingApiClient:
         total_price = money(
             ((fulfillment.get("totalPrice") or {}).get("totalPrice") or {}).get("amount")
         )
+        period = detail.get("deliveryTimePeriod") or {}
+        if not isinstance(period, dict):
+            period = {}
+        extras = await self._async_next_order_extras(order_id, str(slot.get("date") or ""))
         return NextOrderData(
             order_id=order_id,
             status=str(fulfillment.get("statusDescription") or delivery.get("status") or ""),
@@ -343,7 +349,53 @@ class AhShoppingApiClient:
             delivery_end_time=str(slot.get("endTime") or ""),
             total_price=total_price,
             items=tuple(items),
+            order_state=str(detail.get("orderState") or ""),
+            order_method=str(detail.get("orderMethod") or ""),
+            window_start=str(period.get("startDateTime") or ""),
+            window_end=str(period.get("endDateTime") or ""),
+            **extras,
         )
+
+    async def _async_next_order_extras(self, order_id: int, delivery_date: str) -> dict[str, Any]:
+        """AH's discount, live ETA and order limits; each optional and best effort."""
+        extras: dict[str, Any] = {}
+
+        async def optional(name: str, query: str, variables: dict[str, Any] | None = None):
+            try:
+                return await self._graphql(query, variables)
+            except AhAuthError:
+                raise
+            except (AhNotFoundError, AhRequestError, AhTransientError) as err:
+                _LOGGER.debug("AH %s unavailable: %s", name, err)
+                return None
+
+        data = await optional("order discount", ORDER_DISCOUNT_QUERY)
+        for row in ((data or {}).get("orderFulfillments") or {}).get("result") or []:
+            if isinstance(row, dict) and int(row.get("orderId") or 0) == order_id:
+                amount = (((row.get("totalPrice") or {}).get("discount") or {}).get("amount"))
+                if amount is not None:
+                    extras["ah_discount"] = _float(amount)
+
+        # The live ETA only exists around delivery day; skip the call otherwise.
+        today = datetime.now().date().isoformat()
+        if not delivery_date or delivery_date <= today:
+            data = await optional("track and trace", ORDER_TRACK_TRACE_QUERY, {"orderId": order_id})
+            tracking = ((((data or {}).get("order") or {}).get("delivery") or {}).get("trackAndTraceV2")) or {}
+            if isinstance(tracking, dict):
+                eta = ((tracking.get("etaBlock") or {}).get("range")) or {}
+                extras["tracking_type"] = str(tracking.get("type") or "")
+                extras["tracking_message"] = str(tracking.get("message") or "")
+                if isinstance(eta, dict):
+                    extras["eta_start"] = str(eta.get("start") or "")
+                    extras["eta_end"] = str(eta.get("end") or "")
+
+        data = await optional("order value limits", ORDER_VALUE_LIMITS_QUERY, {"orderId": order_id})
+        limits = (data or {}).get("orderValueLimits")
+        if isinstance(limits, dict):
+            extras["minimum_order_value"] = _float(limits.get("minimumOrderValue"))
+            if limits.get("submittable") is not None:
+                extras["submittable"] = bool(limits.get("submittable"))
+        return extras
 
     async def async_get_list_payload(self) -> dict[str, Any]:
         data = await self._raw_request("GET", SHOPPINGLIST_ITEMS_READ_PATH)

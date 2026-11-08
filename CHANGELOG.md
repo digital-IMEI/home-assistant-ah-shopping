@@ -2,6 +2,13 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
+### Unreleased
+
+- Next order: uses AH's own order discount for the Bonus savings and total when AH returns it (`price_source: ah`), instead of a local estimate.
+- Next order: shows AH's live delivery window on delivery day (track & trace, or the narrowed delivery period) as `expected_time_display`; the card shows it instead of the booked slot.
+- Next order: exposes AH's minimum order value, the amount still needed, whether the order can be submitted, the order state code and the order method.
+- Each of these is requested separately, so an unavailable field never affects the order itself.
+
 ### 0.2.30
 
 Contributions by **[@Tosko4](https://github.com/Tosko4)** and **[@Jochemp88](https://github.com/Jochemp88)**, integrated in [#11](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/11).

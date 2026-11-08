@@ -278,7 +278,7 @@ class AhShoppingCard extends HTMLElement {
         edit_source:null,
         entity:this._orderEntity(),
         delivery:order.delivery_date_display||order.delivery_date||'',
-        time:order.delivery_time_display||''
+        time:order.expected_time_display||order.delivery_time_display||''
       };
     }
 
@@ -297,7 +297,7 @@ class AhShoppingCard extends HTMLElement {
         combined:true,
         entity:this._entity()||(includeOrder?this._orderEntity():null),
         delivery:includeOrder?(order.delivery_date_display||order.delivery_date||''):'',
-        time:includeOrder?(order.delivery_time_display||''):'',
+        time:includeOrder?(order.expected_time_display||order.delivery_time_display||''):'',
         bonus_savings:Number(list.bonus_savings||0)+(includeOrder?Number(order.bonus_savings||0):0),
         bonus_savings_estimated:includeOrder&&order.bonus_savings_estimated===true,
         order_included:includeOrder,

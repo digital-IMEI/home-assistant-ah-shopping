@@ -396,6 +396,12 @@ class ShoppingListData:
 
 
 
+def _clock(value: str) -> str:
+    """Return HH:MM from an ISO date-time or a time string; empty when unknown."""
+    match = re.search(r"(?:T|^)(\d{2}):(\d{2})", str(value or ""))
+    return f"{match.group(1)}:{match.group(2)}" if match else ""
+
+
 @dataclass(slots=True, frozen=True)
 class NextOrderItem:
     product_id: int
@@ -462,6 +468,19 @@ class NextOrderData:
     delivery_end_time: str = ""
     total_price: float = 0.0
     items: tuple[NextOrderItem, ...] = field(default_factory=tuple)
+    order_state: str = ""
+    order_method: str = ""
+    # deliveryTimePeriod from the order details: the slot, narrowed on delivery day.
+    window_start: str = ""
+    window_end: str = ""
+    # Optional extras straight from AH (None/empty when AH did not return them).
+    ah_discount: float | None = None
+    tracking_type: str = ""
+    tracking_message: str = ""
+    eta_start: str = ""
+    eta_end: str = ""
+    minimum_order_value: float = 0.0
+    submittable: bool | None = None
 
     @property
     def total_quantity(self) -> int:
@@ -472,8 +491,23 @@ class NextOrderData:
         return len(self.items)
 
     @property
+    def price_source(self) -> str:
+        return "ah" if self.ah_discount is not None else "estimate"
+
+    @property
     def bonus_savings(self) -> float:
+        if self.ah_discount is not None:
+            return round(self.ah_discount, 2)
         return self._pricing()[0]
+
+    @property
+    def expected_time(self) -> tuple[str, str]:
+        """The narrowest known delivery window: live ETA, then a narrowed period, then the slot."""
+        for start, end in ((self.eta_start, self.eta_end), (self.window_start, self.window_end)):
+            start_hm, end_hm = _clock(start), _clock(end)
+            if start_hm and end_hm and (start_hm, end_hm) != (self.delivery_start_time[:5], self.delivery_end_time[:5]):
+                return start_hm, end_hm
+        return "", ""
 
     def _pricing(self) -> tuple[float, float]:
         lines = tuple(ShoppingItem("", item.product_id, item.quantity, product=Product(
@@ -505,11 +539,23 @@ class NextOrderData:
             "delivery_time_display": self.delivery_time_display,
             "delivery_start_time": self.delivery_start_time,
             "delivery_end_time": self.delivery_end_time,
+            "expected_start_time": self.expected_time[0],
+            "expected_end_time": self.expected_time[1],
+            "expected_time_display": " - ".join(self.expected_time) if self.expected_time[0] else "",
+            "order_state": self.order_state,
+            "order_method": self.order_method,
+            "tracking_type": self.tracking_type,
+            "tracking_message": self.tracking_message,
+            "minimum_order_value": round(self.minimum_order_value, 2),
+            "remaining_to_minimum": round(max(0.0, self.minimum_order_value - self.total_price), 2),
+            "submittable": self.submittable,
+            "price_source": self.price_source,
             "total_price": round(self.total_price, 2),
-            "estimated_product_total": self.estimated_product_total,
-            "total_price_difference": round(self.total_price - self.estimated_product_total, 2),
+            # With AH's own discount the AH total is exact, so there is no estimate.
+            "estimated_product_total": None if self.ah_discount is not None else self.estimated_product_total,
+            "total_price_difference": 0.0 if self.ah_discount is not None else round(self.total_price - self.estimated_product_total, 2),
             "bonus_savings": self.bonus_savings,
-            "bonus_savings_estimated": True,
+            "bonus_savings_estimated": self.ah_discount is None,
             "total_quantity": self.total_quantity,
             "unique_items": self.unique_items,
             "items": [item.as_dict() for item in self.items],

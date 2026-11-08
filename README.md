@@ -187,8 +187,8 @@ Entity IDs depend on Home Assistant naming and existing installations; use the i
 | Albert Heijn Shopping Cart sensor | Total list quantity; product lines, prices, calculated totals, sync timestamp and pending-change attributes. Existing installations may use `sensor.albert_heijn_shopping_list`. |
 | Albert Heijn Shopping Estimated Total | Calculated list product total in EUR. |
 | Albert Heijn Shopping Bonus Savings | List-only Bonus savings; zero is correct if the list has no supported discounted products. |
-| Albert Heijn Next Order | Next scheduled order quantity; products, delivery slot, status, cut-off and price attributes. |
-| Albert Heijn Next Order Bonus Savings | Calculated savings belonging to the order, separate from the list. |
+| Albert Heijn Next Order | Next scheduled order quantity; products, delivery slot, status, cut-off and price attributes. On delivery day `expected_time_display` holds AH's live delivery window once the route is planned; `minimum_order_value`, `remaining_to_minimum` and `submittable` come from AH's order limits. |
+| Albert Heijn Next Order Bonus Savings | AH's order discount when available, otherwise calculated savings; separate from the list. |
 | Albert Heijn Shopping Cart To-do | Read-only native Home Assistant To-do representation. Struck-through products show as completed; edit through the custom card or integration actions. |
 
 ### Actions
@@ -223,7 +223,7 @@ Example for a script or automation action sequence:
 
 The shopping-list **subtotal, Bonus savings and estimated total** now use AH's own GraphQL `totalPrice` calculation for the complete set of product quantities. This supports mixed-product offers such as “2 voor €5,50” without guessing promotion groups locally. The shopping-list sensor exposes `price_source`: `ah`, `ah_pending`, `ah_adjusted` or `estimate`.
 
-If AH's pricing endpoint is unavailable, the integration falls back to locally supported offers, including “N + M gratis” (e.g. 2 + 1), second half price, “N halen M betalen” and “N voor X”. Individual product savings and next-order estimates remain local estimates. Checkout invoices can still differ due to delivery charges, deposits, substitutions or other AH-specific conditions. Do not assume per-product Bonus amounts add up to the list's AH-calculated total.
+If AH's pricing endpoint is unavailable, the integration falls back to locally supported offers, including “N + M gratis” (e.g. 2 + 1), second half price, “N halen M betalen” and “N voor X”. For the next order, AH's own order discount is used when AH returns it (`price_source: ah` on the next-order sensor); otherwise the order savings are a local estimate. Individual product savings remain local estimates. Checkout invoices can still differ due to delivery charges, deposits, substitutions or other AH-specific conditions. Do not assume per-product Bonus amounts add up to the list's AH-calculated total.
 
 Read the [troubleshooting guide](docs/TROUBLESHOOTING.md) before reporting a difference, and never publish account identifiers, addresses or authorization data.
 
