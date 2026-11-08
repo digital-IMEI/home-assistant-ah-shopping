@@ -8,6 +8,7 @@ Historical entries describe the behaviour of that version; the [README](README.m
 - Next order: shows AH's live delivery window on delivery day (track & trace, or the narrowed delivery period) as `expected_time_display`; the card shows it instead of the booked slot.
 - Next order: exposes AH's minimum order value, the amount still needed, whether the order can be submitted, the order state code and the order method.
 - Next-order card: a progress bar Besteld › Inpakken › Onderweg › Geleverd, as in the Appie app, from AH's track & trace type (`--ah-progress-color`).
+- Next order: while the driver is out, `customers_ahead` holds the number of stops before yours from AH's track & trace message (0 when you are next), and the card shows it below the progress bar.
 - Each of these is requested separately, so an unavailable field never affects the order itself.
 
 ### 0.2.30

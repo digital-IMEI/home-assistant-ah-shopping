@@ -517,6 +517,15 @@ class NextOrderData:
         return self._pricing()[0]
 
     @property
+    def customers_ahead(self) -> int | None:
+        """Stops before ours, from AH's track & trace message ("Er zijn nog 3 klanten voor je")."""
+        message = self.tracking_message.casefold()
+        if "eerstvolgende" in message:
+            return 0
+        match = re.search(r"nog (\d+) klant", message)
+        return int(match.group(1)) if match else None
+
+    @property
     def expected_time(self) -> tuple[str, str]:
         """The narrowest known delivery window: live ETA, then a narrowed period, then the slot."""
         for start, end in ((self.eta_start, self.eta_end), (self.window_start, self.window_end)):
@@ -562,6 +571,7 @@ class NextOrderData:
             "order_method": self.order_method,
             "tracking_type": self.tracking_type,
             "tracking_message": self.tracking_message,
+            "customers_ahead": self.customers_ahead,
             "minimum_order_value": round(self.minimum_order_value, 2),
             "remaining_to_minimum": round(max(0.0, self.minimum_order_value - self.total_price), 2),
             "submittable": self.submittable,

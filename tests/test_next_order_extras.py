@@ -101,3 +101,13 @@ def test_track_and_trace_utc_times_are_shown_in_dutch_time():
     assert _clock("2026-11-08T16:00:00+01:00") == "16:00"
     assert _clock("2026-11-08T16:00:00") == "16:00"       # order periods are already local
     assert _clock("16:00") == "16:00" and _clock("") == ""
+
+
+def test_customers_ahead_from_track_and_trace_message():
+    def ahead(message):
+        return NextOrderData(order_id=1, tracking_message=message).customers_ahead
+    assert ahead("Er zijn nog 5 klanten voor je. Onze bezorger verwacht tussen 16:55 en 17:55 uur bij je te zijn.") == 5
+    assert ahead("Er is nog 1 klant voor je. Onze bezorger verwacht tussen 16:40 en 17:10 uur bij je te zijn.") == 1
+    assert ahead("Je bent de eerstvolgende. Onze bezorger verwacht tussen 16:40 en 17:10 uur bij je te zijn.") == 0
+    assert ahead("Onze bezorger verwacht vandaag tussen 16:55 en 17:55 uur bij je te zijn.") is None
+    assert NextOrderData(order_id=1, tracking_message="Er zijn nog 2 klanten voor je.").as_dict()["customers_ahead"] == 2
