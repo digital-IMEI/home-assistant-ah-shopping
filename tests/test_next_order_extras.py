@@ -1,11 +1,11 @@
 import asyncio
-from datetime import date
 
 from custom_components.ah_shopping.api import AhShoppingApiClient
 from custom_components.ah_shopping.exceptions import AhAuthError, AhRequestError
 from custom_components.ah_shopping.models import NextOrderData, NextOrderItem
 
-TODAY = date.today().isoformat()
+# A fixed past winter day: track & trace is queried (not a future order) and UTC+1 applies.
+TODAY = "2026-11-08"
 
 
 def _client(answers, delivery_date=TODAY, period=None):
