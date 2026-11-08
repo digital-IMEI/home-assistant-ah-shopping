@@ -2,6 +2,10 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
+### Unreleased
+
+- Phones: the card header keeps the title on one line, gives the delivery line the full width and moves the savings to their own line, so the delivery time is no longer cut off.
+
 ### 0.2.30
 
 Contributions by **[@Tosko4](https://github.com/Tosko4)** and **[@Jochemp88](https://github.com/Jochemp88)**, integrated in [#11](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/11).
