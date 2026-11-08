@@ -2,9 +2,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field, replace
+from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 import re
 from typing import Any
+from zoneinfo import ZoneInfo
+
+# AH delivers in the Netherlands and Belgium; UTC times from AH are shown in this zone.
+_AH_TIMEZONE = ZoneInfo("Europe/Amsterdam")
 
 
 def _int(value: Any, default: int = 0) -> int:
@@ -397,8 +402,19 @@ class ShoppingListData:
 
 
 def _clock(value: str) -> str:
-    """Return HH:MM from an ISO date-time or a time string; empty when unknown."""
-    match = re.search(r"(?:T|^)(\d{2}):(\d{2})", str(value or ""))
+    """Return local HH:MM from an ISO date-time or a time string; empty when unknown.
+
+    Track & trace times carry a UTC offset ("...T15:55:00Z"); order periods are
+    already local ("...T16:00:00").
+    """
+    text = str(value or "").strip()
+    if "T" in text and re.search(r"(Z|[+-]\d{2}:?\d{2})$", text):
+        try:
+            moment = datetime.fromisoformat(text.replace("Z", "+00:00"))
+            return moment.astimezone(_AH_TIMEZONE).strftime("%H:%M")
+        except ValueError:
+            pass
+    match = re.search(r"(?:T|^)(\d{2}):(\d{2})", text)
     return f"{match.group(1)}:{match.group(2)}" if match else ""
 
 

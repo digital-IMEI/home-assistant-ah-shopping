@@ -40,7 +40,7 @@ def _client(answers, delivery_date=TODAY, period=None):
 
 EXTRAS = {
     "OrderDiscounts": {"orderFulfillments": {"result": [{"orderId": 999, "totalPrice": {"discount": {"amount": 1.0}}}, {"orderId": 300, "totalPrice": {"discount": {"amount": 21.47}}}]}},
-    "FetchOrderTrackTrace": {"order": {"delivery": {"trackAndTraceV2": {"type": "IN_TRANSIT", "message": "Je bezorger is onderweg", "etaBlock": {"range": {"start": f"{TODAY}T16:55:00", "end": f"{TODAY}T17:55:00"}}}}}},
+    "FetchOrderTrackTrace": {"order": {"delivery": {"trackAndTraceV2": {"type": "IN_TRANSIT", "message": "Je bezorger is onderweg", "etaBlock": {"range": {"start": f"{TODAY}T15:55:00Z", "end": f"{TODAY}T16:55:00Z"}}}}}},
     "OrderValueLimits": {"orderValueLimits": {"minimumOrderValue": {"amount": 50}, "submittable": True}},
 }
 
@@ -92,3 +92,12 @@ def test_unchanged_slot_is_not_shown_as_expected_time():
                           items=(NextOrderItem(1, "Melk", 1, price_now=1.0),))
     assert order.expected_time == ("", "")
     assert order.as_dict()["remaining_to_minimum"] == 0.0
+
+
+def test_track_and_trace_utc_times_are_shown_in_dutch_time():
+    from custom_components.ah_shopping.models import _clock
+    assert _clock("2026-11-08T15:55:00Z") == "16:55"      # winter time, UTC+1
+    assert _clock("2026-07-08T15:55:00Z") == "17:55"      # summer time, UTC+2
+    assert _clock("2026-11-08T16:00:00+01:00") == "16:00"
+    assert _clock("2026-11-08T16:00:00") == "16:00"       # order periods are already local
+    assert _clock("16:00") == "16:00" and _clock("") == ""
