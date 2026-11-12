@@ -97,3 +97,50 @@ query OrderFulfillments {
   }
 }
 """
+
+# Optional next-order extras. Each is requested on its own, so an unknown field
+# never breaks the order itself.
+ORDER_DISCOUNT_QUERY = """
+query OrderDiscounts {
+  orderFulfillments(status: OPEN) {
+    result {
+      orderId
+      totalPrice {
+        discount {
+          amount
+        }
+      }
+    }
+  }
+}
+"""
+
+ORDER_TRACK_TRACE_QUERY = """
+query FetchOrderTrackTrace($orderId: Int!) {
+  order(id: $orderId) {
+    delivery {
+      trackAndTraceV2 {
+        type
+        message
+        etaBlock {
+          range {
+            start
+            end
+          }
+        }
+      }
+    }
+  }
+}
+"""
+
+ORDER_VALUE_LIMITS_QUERY = """
+query OrderValueLimits($orderId: Int!) {
+  orderValueLimits(orderId: $orderId) {
+    minimumOrderValue {
+      amount
+    }
+    submittable
+  }
+}
+"""

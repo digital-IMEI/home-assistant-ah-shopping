@@ -18,7 +18,7 @@ A custom integration with a bundled dashboard card for AH **Mijn lijst**, produc
 
 - **Editable shopping list:** view AH Mijn lijst, search or scan products, adjust quantities, mark items completed, restore or remove completed items, and swipe to remove on touch screens.
 - **Product details:** images, unit sizes, current prices, previous prices and Bonus labels; optional sorting by department or favourite-store walking route.
-- **Scheduled order:** read-only products, quantities and delivery date/time.
+- **Scheduled order:** read-only products, quantities and delivery date/time; AH's own order total and Bonus; on delivery day the live delivery window, the number of customers before you and a Besteld › Inpakken › Onderweg › Geleverd progress bar, as in the Appie app.
 - **Combined overview:** merge identical products from the list and the next order, while keeping ordered and extra quantities separate.
 - **Camera barcode scanner:** on-demand, automatically active on entering a dashboard, or a permanent feed.
 - **Fast local decoding:** bundled ZXing-C++/WebAssembly in a background worker, with alternative decoders for different devices.
@@ -152,6 +152,17 @@ Most settings are available in the visual card editor. `entity` is an optional Y
 
 Legacy `product_source: cart` / `cart_and_order` map to `shopping_list` / `shopping_list_and_order`. Legacy `mode: scan_only` remains compatible.
 
+### Next order progress
+
+With `product_source: next_order` the card shows a progress bar below the header, like the Appie app:
+
+- **Besteld** while the order can still be changed;
+- **Inpakken** after the cut-off, once AH has sent the order to its logistics partner;
+- **Onderweg** while the driver is out (`OUT_FOR_DELIVERY` / track & trace `UNDERWAY`), with "Nog 3 klanten voor je" or "Je bent de eerstvolgende" below it;
+- **Geleverd** when AH reports the order as delivered. AH removes delivered orders from the open orders shortly after, so the card then shows the next order or none.
+
+The header shows AH's live delivery window instead of the booked slot as soon as AH has planned the route. Themes can change the bar colour with `--ah-progress-color`.
+
 ### Scanner behaviour
 
 - Button modes close after **60 seconds without a first successful scan**, or **10 seconds after the latest successful scan**. Permanent mode does not auto-close.
@@ -187,8 +198,8 @@ Entity IDs depend on Home Assistant naming and existing installations; use the i
 | Albert Heijn Shopping Cart sensor | Total list quantity; product lines, prices, calculated totals, sync timestamp and pending-change attributes. Existing installations may use `sensor.albert_heijn_shopping_list`. |
 | Albert Heijn Shopping Estimated Total | Calculated list product total in EUR. |
 | Albert Heijn Shopping Bonus Savings | List-only Bonus savings; zero is correct if the list has no supported discounted products. |
-| Albert Heijn Next Order | Next scheduled order quantity; products, delivery slot, status, cut-off and price attributes. |
-| Albert Heijn Next Order Bonus Savings | Calculated savings belonging to the order, separate from the list. |
+| Albert Heijn Next Order | Next scheduled order quantity; products, delivery slot, status, cut-off and price attributes. On delivery day `expected_time_display` holds AH's live delivery window once the route is planned (shown in Dutch time) and, while the driver is out, `customers_ahead` the number of stops before yours (0 when you are next). `order_state` and `tracking_type` carry AH's status codes, `price_source` is `ah` when the total and Bonus come from AH. `minimum_order_value`, `remaining_to_minimum` (indicative; AH's `submittable` is decisive) and `submittable` come from AH's order limits. |
+| Albert Heijn Next Order Bonus Savings | AH's order discount when available, otherwise calculated savings; separate from the list. |
 | Albert Heijn Shopping Cart To-do | Read-only native Home Assistant To-do representation. Struck-through products show as completed; edit through the custom card or integration actions. |
 
 ### Actions
@@ -223,7 +234,7 @@ Example for a script or automation action sequence:
 
 The shopping-list **subtotal, Bonus savings and estimated total** now use AH's own GraphQL `totalPrice` calculation for the complete set of product quantities. This supports mixed-product offers such as “2 voor €5,50” without guessing promotion groups locally. The shopping-list sensor exposes `price_source`: `ah`, `ah_pending`, `ah_adjusted` or `estimate`.
 
-If AH's pricing endpoint is unavailable, the integration falls back to locally supported offers, including “N + M gratis” (e.g. 2 + 1), second half price, “N halen M betalen” and “N voor X”. Individual product savings and next-order estimates remain local estimates. Checkout invoices can still differ due to delivery charges, deposits, substitutions or other AH-specific conditions. Do not assume per-product Bonus amounts add up to the list's AH-calculated total.
+If AH's pricing endpoint is unavailable, the integration falls back to locally supported offers, including “N + M gratis” (e.g. 2 + 1), second half price, “N halen M betalen” and “N voor X”. For the next order, AH's own order discount is used when AH returns it (`price_source: ah` on the next-order sensor); otherwise the order savings are a local estimate. Individual product savings remain local estimates. Checkout invoices can still differ due to delivery charges, deposits, substitutions or other AH-specific conditions. Do not assume per-product Bonus amounts add up to the list's AH-calculated total.
 
 Read the [troubleshooting guide](docs/TROUBLESHOOTING.md) before reporting a difference, and never publish account identifiers, addresses or authorization data.
 
