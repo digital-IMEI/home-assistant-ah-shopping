@@ -33,6 +33,12 @@ The editable source is AH's account-wide **Mijn lijst**, labelled **Winkelmandje
 
 In the combined view, the ordered quantity is a read-only minimum. Minus removes only extra list quantity; plus adds to Mijn lijst. Once AH reports the order cut-off has passed, the order disappears from the **combined** view. The separate next-order view remains read-only.
 
+**Bonus follows the card's selected source:** `shopping_list` uses AH's price/Bonus calculation for the current editable list; `next_order` uses the discount reported by AH for the placed order. The combined `shopping_list_and_order` view includes the Bonus from each included source. Displayed totals are already net of discount; never subtract Bonus a second time.
+
+### Related integration: Albert Heijn Delivery
+
+For dedicated delivery tracking, live ETA, Track & Trace messages, ETA freshness checks and adaptive polling, see **[Albert Heijn Delivery](https://github.com/digital-IMEI/home-assistant-ah-delivery)**. It is a separate Home Assistant integration and the preferred reference for delivery-specific functionality. AH Shopping focuses on the shopping list, order contents, Bonus and a compact order overview; it does not depend on AH Delivery. Avoid duplicating or extending delivery-tracking logic here when it already exists in AH Delivery.
+
 ## Installation
 
 ### Requirements
