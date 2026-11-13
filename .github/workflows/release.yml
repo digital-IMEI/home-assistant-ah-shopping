@@ -40,4 +40,9 @@ jobs:
             echo "Release $VERSION already exists"
             exit 0
           fi
-          gh release create "$VERSION" --target "$VALIDATED_SHA" --title "$VERSION" --generate-notes
+          notes_file="docs/releases/$VERSION.md"
+          if [[ -f "$notes_file" ]]; then
+            gh release create "$VERSION" --target "$VALIDATED_SHA" --title "$VERSION" --notes-file "$notes_file"
+          else
+            gh release create "$VERSION" --target "$VALIDATED_SHA" --title "$VERSION" --generate-notes
+          fi

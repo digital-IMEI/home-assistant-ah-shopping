@@ -2,17 +2,13 @@
 
 Historical entries describe the behaviour of that version; the [README](README.md) describes the current release.
 
-### Unreleased
+### 0.2.31
 
-- `fill_screen` now takes only the room the content needs and grows up to the screen height, instead of always filling the screen; a short list no longer leaves an empty block. On phones the card does not scroll by itself, so one swipe scrolls the whole page past stacked cards. The camera view keeps the full height.
-- Phones: the card header keeps the title on one line, gives the delivery line the full width and moves the savings to their own line, so the delivery time is no longer cut off.
-
-- Next order: uses AH's own order discount for the Bonus savings and total when AH returns it (`price_source: ah`), instead of a local estimate.
-- Next order: shows AH's live delivery window on delivery day (track & trace, or the narrowed delivery period) as `expected_time_display`; the card shows it instead of the booked slot.
-- Next order: exposes AH's minimum order value, the amount still needed, whether the order can be submitted, the order state code and the order method.
-- Next-order card: a progress bar Besteld › Inpakken › Onderweg › Geleverd, as in the Appie app, from AH's track & trace type (`--ah-progress-color`).
-- Next order: while the driver is out, `customers_ahead` holds the number of stops before yours from AH's track & trace message (0 when you are next), and the card shows it below the progress bar.
-- Each of these is requested separately (in parallel), so an unavailable field never affects the order itself. Times from track & trace are UTC and are shown in Dutch time.
+- **Order Bonus:** use the discount reported by AH when available (local estimate otherwise), consistent with the card's active list/order source.
+- **Order overview:** live delivery window when available, delivery progress, customers ahead and additional order details.
+- **Mobile cards:** content-aware `fill_screen`, better page scrolling and an unclipped delivery header.
+- **Delivery tracking:** [AH Delivery](https://github.com/digital-IMEI/home-assistant-ah-delivery) remains the dedicated integration for live ETA and Track & Trace.
+- **Thanks:** **[@Jochemp88](https://github.com/Jochemp88)** for [#12](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/12) and [#13](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/13), integrated via [#14](https://github.com/digital-IMEI/home-assistant-ah-shopping/pull/14).
 
 ### 0.2.30
 
