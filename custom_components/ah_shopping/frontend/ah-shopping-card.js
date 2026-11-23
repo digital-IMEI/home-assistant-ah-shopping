@@ -274,11 +274,12 @@ class AhShoppingCard extends HTMLElement {
         bonus_savings:order.bonus_savings||0,
         bonus_savings_estimated:order.bonus_savings_estimated===true,
         unique_items:order.unique_items||0,
-        label:'Volgende bestelling',
+        label:order.delivered?'Bezorgde bestelling':'Volgende bestelling',
         edit_source:null,
         entity:this._orderEntity(),
         delivery:order.delivery_date_display||order.delivery_date||'',
-        time:order.expected_time_display||order.delivery_time_display||'',
+        // A delivered order stays a while so the delivery can be checked against it.
+        time:order.delivered?this._deliveredText(order.delivered_at):order.expected_time_display||order.delivery_time_display||'',
         progress:this._orderStep(order),
         queue:this._orderQueue(order)
       };
@@ -319,6 +320,11 @@ class AhShoppingCard extends HTMLElement {
       bonus_savings:list.bonus_savings||0,
       pending_changes:list.pending_changes||0
     };
+  }
+  _deliveredText(at){
+    const moment=new Date(at||'');
+    if(Number.isNaN(moment.getTime()))return 'bezorgd';
+    return `bezorgd om ${moment.toLocaleTimeString('nl-NL',{hour:'2-digit',minute:'2-digit',timeZone:'Europe/Amsterdam'})}`;
   }
   _orderStep(order){
     // Like the Appie app: once the order is past its cut-off and sent to AH's logistics partner it is
