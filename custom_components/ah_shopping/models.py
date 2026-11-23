@@ -501,6 +501,20 @@ class NextOrderData:
     eta_end: str = ""
     minimum_order_value: float = 0.0
     submittable: bool | None = None
+    # Set while a just-delivered order is kept on screen (ISO time when it left AH's open orders).
+    delivered_at: str = ""
+
+    def as_delivered(self, now: datetime) -> NextOrderData:
+        """This order as delivered: AH drops it from the open orders once it is handed over."""
+        return replace(
+            self,
+            delivered_at=now.isoformat(timespec="seconds"),
+            status="Bezorgd",
+            tracking_type="DELIVERED",
+            tracking_message="",
+            modifiable=False,
+            reopenable=False,
+        )
 
     @property
     def total_quantity(self) -> int:
@@ -588,6 +602,8 @@ class NextOrderData:
             "bonus_savings_estimated": self.ah_discount is None,
             "total_quantity": self.total_quantity,
             "unique_items": self.unique_items,
+            "delivered": bool(self.delivered_at),
+            "delivered_at": self.delivered_at,
             "items": [item.as_dict() for item in self.items],
         }
 

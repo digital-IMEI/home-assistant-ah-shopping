@@ -19,9 +19,11 @@ from .const import (
     NAME,
 )
 from .exceptions import AhAuthError, AhShoppingError
-from .models import NextOrderData, Product, ShoppingItem, ShoppingListData
+from .models import AH_TIMEZONE, NextOrderData, Product, ShoppingItem, ShoppingListData
 
 _LOGGER = logging.getLogger(__name__)
+# How long a delivered order stays visible after AH drops it from the open orders.
+DELIVERED_ORDER_RETENTION = timedelta(hours=2)
 _PENDING_TTL = 20.0
 _RECONCILE_DELAY = 1.0
 
@@ -216,14 +218,38 @@ class AhNextOrderCoordinator(DataUpdateCoordinator[NextOrderData]):
             config_entry=entry,
         )
         self.client = client
+        self._delivered: NextOrderData | None = None
 
     async def _async_update_data(self) -> NextOrderData:
         try:
-            return await self.client.async_get_next_order()
+            fresh = await self.client.async_get_next_order()
         except AhAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except AhShoppingError as err:
             _LOGGER.warning("Could not update AH next order: %s", err)
             return self.data if self.data is not None else NextOrderData()
+        return self._keep_delivered(fresh, datetime.now(AH_TIMEZONE))
+
+    def _keep_delivered(self, fresh: NextOrderData, now: datetime) -> NextOrderData:
+        """Keep a just-delivered order on screen for a while, to check the delivery against it.
+
+        AH drops an order from its open orders once it is delivered. An order that leaves on or
+        after its delivery date counts as delivered; one that leaves earlier was cancelled.
+        """
+        previous = self.data
+        if (
+            previous is not None
+            and previous.order_id
+            and not previous.delivered_at
+            and fresh.order_id != previous.order_id
+            and previous.delivery_date
+            and previous.delivery_date <= now.date().isoformat()
+        ):
+            self._delivered = previous.as_delivered(now)
+        if self._delivered is not None:
+            if now - datetime.fromisoformat(self._delivered.delivered_at) < DELIVERED_ORDER_RETENTION:
+                return self._delivered
+            self._delivered = None
+        return fresh
 
 
