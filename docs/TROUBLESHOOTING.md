@@ -39,6 +39,7 @@ Start with `scan_decoder: auto` and `scan_zoom: 1`. Keep the whole barcode and s
 - Product-not-found error: barcode recognition worked, but AH could not resolve the code.
 - Decoder error: the worker/browser decoder failed; the message identifies any fallback.
 - Silent misses: try `wasm` or `local` to compare device behaviour. Legacy `zxing` needs access to jsDelivr.
+- Slow or wrong additions: enable debug logging for the integration. Each scan addition then logs the barcode, the product AH returned, and how long the lookup and the whole addition took; a code AH does not know is logged too.
 
 Keep browser console/network errors for a bug report, but redact account data. Include browser/app, device, decoder, zoom and installed integration version. Do not share camera images containing faces, addresses or private screens.
 

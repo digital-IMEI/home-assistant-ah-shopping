@@ -1,5 +1,7 @@
 """Domain services used by automations and the AH Shopping dashboard card."""
 from __future__ import annotations
+import logging
+from time import monotonic
 from typing import Any
 import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse
@@ -7,6 +9,8 @@ from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from .const import DOMAIN
 from .exceptions import AhShoppingError
+
+_LOGGER = logging.getLogger(__name__)
 
 SERVICE_SEARCH = "search_products"
 SERVICE_LOOKUP = "lookup_barcode"
@@ -71,9 +75,10 @@ async def _add_product(hass: HomeAssistant, call: ServiceCall) -> ServiceRespons
         raise HomeAssistantError(str(err)) from err
 
 async def _add_barcode(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:
-    rt=_runtime(hass)
+    rt=_runtime(hass); started=monotonic(); barcode=call.data["barcode"]
     try:
-        p=await rt.client.async_lookup_barcode(call.data["barcode"])
+        p=await rt.client.async_lookup_barcode(barcode)
+        looked_up=monotonic()
         async with rt.coordinator.product_lock(p.id):
             current=rt.coordinator.data.quantity_for_product(p.id)
             new=max(1, current+call.data.get("quantity", 1))
@@ -86,9 +91,14 @@ async def _add_barcode(hass: HomeAssistant, call: ServiceCall) -> ServiceRespons
                 checked=item.checked if item else False,
             )
             rt.coordinator.note_quantity(p.id,new,p)
+        _LOGGER.debug(
+            "Barcode %s added as %s (%s), quantity %s; lookup %.2f s, total %.2f s",
+            barcode, p.id, p.title, new, looked_up-started, monotonic()-started,
+        )
         d=p.as_dict(); d["quantity_on_list"]=new
         return {"success":True, "product":d}
     except AhShoppingError as err:
+        _LOGGER.debug("Barcode %s not added after %.2f s: %s", barcode, monotonic()-started, err)
         raise HomeAssistantError(str(err)) from err
 
 async def _set_quantity(hass: HomeAssistant, call: ServiceCall) -> ServiceResponse:

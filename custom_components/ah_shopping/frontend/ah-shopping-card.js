@@ -1,4 +1,5 @@
 const SCAN_COOLDOWN_MS=1200;
+const SCAN_CONFIRM_MS=1000; // a second matching read within this time confirms a barcode
 const REMOVAL_UNDO_MS=4000;
 const SEARCH_DELAY_MS=800; // search automatically after this pause in typing
 const SEARCH_PICK_DELAY_MS=2000; // add a chosen quantity after this pause, unless ✓ is tapped first
@@ -54,7 +55,7 @@ function decodeEANFromImageData(imageData){
 }
 
 class AhShoppingCard extends HTMLElement {
-  constructor(){super(); this.attachShadow({mode:'open'}); this._config={}; this._hass=null; this._listScrollTop=0; this._scanner=null; this._scanLoop=null; this._scanVideoFrame=null; this._scanAnimationFrame=null; this._decodeWorker=null; this._workerPending=null; this._scanGeneration=0; this._scanCooldownUntil=0; this._facing='user'; this._message=''; this._lastEntitySig=null; this._barcodeDetector=null; this._zxingReader=null; this._decoderMode='local'; this._cameraInfo=''; this._scanCount=0; this._scanBusy=false; this._scanProcessing=false; this._scanQueue=[]; this._heldBarcode=''; this._heldBarcodeLastSeen=0; this._barcodeAbsentSince=0; this._audioContext=null; this._scanProduct=null; this._scanPendingQty=new Map(); this._scanQtyWorkers=new Map(); this._pendingQty=new Map(); this._rowRemovals=new Map(); this._qtyWorkers=new Map(); this._stableItemOrder=new Map(); this._stableItemSeq=0; this._searchQuery=''; this._searchShown=''; this._searchResults=null; this._searchBusy=false; this._searchSeq=0; this._searchPick=null; this._scanInlineActive=false; this._scanRecent=[]; this._scanRecentTimer=null; this._intersecting=false; this._visibilityObserver=null; this._visibilitySetup=false; this._cameraStarting=false; this._digitalZoom=1; this._nativeZoom=1; this._decoderMisses=0; this._scannerRoute=''; this._autoScannerRoute=''; this._autoVisitArmed=true; this._scanTimer=null; this._scanTimerTick=null; this._scanDeadline=0; this._listScrollAnchor=null; this._scanBandCanvas=null; this._scanStatusTimer=null; this._isAndroid=/Android/i.test(navigator.userAgent||''); window.__ahShoppingScanOrder=window.__ahShoppingScanOrder||{seq:0,products:new Map()}; this._scanOrderState=window.__ahShoppingScanOrder; window.__ahShoppingListRefresh=window.__ahShoppingListRefresh||{last:0}; this._listRefreshState=window.__ahShoppingListRefresh; this._listRefreshTimer=null; this._photoInput=null; this._visibilityHandler=()=>{this._syncScannerVisibility();this._syncListRefresh();}; this._locationHandler=()=>requestAnimationFrame(()=>this._handleLocationChange());}
+  constructor(){super(); this.attachShadow({mode:'open'}); this._config={}; this._hass=null; this._listScrollTop=0; this._scanner=null; this._scanLoop=null; this._scanVideoFrame=null; this._scanAnimationFrame=null; this._decodeWorker=null; this._workerPending=null; this._scanGeneration=0; this._scanCooldownUntil=0; this._facing='user'; this._message=''; this._lastEntitySig=null; this._barcodeDetector=null; this._zxingReader=null; this._decoderMode='local'; this._cameraInfo=''; this._scanCount=0; this._scanBusy=false; this._scanProcessing=false; this._scanQueue=[]; this._heldBarcode='';this._candidateBarcode='';this._candidateBarcodeAt=0; this._heldBarcodeLastSeen=0; this._barcodeAbsentSince=0; this._audioContext=null; this._scanProduct=null; this._scanPendingQty=new Map(); this._scanQtyWorkers=new Map(); this._pendingQty=new Map(); this._rowRemovals=new Map(); this._qtyWorkers=new Map(); this._stableItemOrder=new Map(); this._stableItemSeq=0; this._searchQuery=''; this._searchShown=''; this._searchResults=null; this._searchBusy=false; this._searchSeq=0; this._searchPick=null; this._scanInlineActive=false; this._scanRecent=[]; this._scanRecentTimer=null; this._intersecting=false; this._visibilityObserver=null; this._visibilitySetup=false; this._cameraStarting=false; this._digitalZoom=1; this._nativeZoom=1; this._decoderMisses=0; this._scannerRoute=''; this._autoScannerRoute=''; this._autoVisitArmed=true; this._scanTimer=null; this._scanTimerTick=null; this._scanDeadline=0; this._listScrollAnchor=null; this._scanBandCanvas=null; this._scanStatusTimer=null; this._isAndroid=/Android/i.test(navigator.userAgent||''); window.__ahShoppingScanOrder=window.__ahShoppingScanOrder||{seq:0,products:new Map()}; this._scanOrderState=window.__ahShoppingScanOrder; window.__ahShoppingListRefresh=window.__ahShoppingListRefresh||{last:0}; this._listRefreshState=window.__ahShoppingListRefresh; this._listRefreshTimer=null; this._photoInput=null; this._visibilityHandler=()=>{this._syncScannerVisibility();this._syncListRefresh();}; this._locationHandler=()=>requestAnimationFrame(()=>this._handleLocationChange());}
   static getStubConfig(){return {show_header:true,show_scan:true,show_products:true,product_source:'shopping_list',scanner_mode:'button',scan_camera:'front',scan_zoom:2,scan_decoder:'auto'};}
   static getConfigForm(){return {schema:[
     {name:'title',selector:{text:{}}},
@@ -901,7 +902,7 @@ class AhShoppingCard extends HTMLElement {
     this._armScanAudio();
     this._scanQueue=[];
     this._scanProcessing=false;
-    this._heldBarcode='';
+    this._heldBarcode='';this._candidateBarcode='';this._candidateBarcodeAt=0;
     this._heldBarcodeLastSeen=0; this._barcodeAbsentSince=0;
     this._scanProduct=null;
     this._scanRecent=[];
@@ -1577,7 +1578,7 @@ class AhShoppingCard extends HTMLElement {
     // barcode having left the camera. Start absence timing on the first miss.
     if(!this._barcodeAbsentSince)this._barcodeAbsentSince=now;
     if(now-this._barcodeAbsentSince>700){
-      this._heldBarcode='';
+      this._heldBarcode='';this._candidateBarcode='';this._candidateBarcodeAt=0;
       this._heldBarcodeLastSeen=0;
       this._barcodeAbsentSince=0;
     }
@@ -1593,8 +1594,21 @@ class AhShoppingCard extends HTMLElement {
       this._heldBarcodeLastSeen=now;
       return;
     }
+    // A single frame can yield a wrong code whose check digit happens to
+    // match (blur, glare, a fallback decoder's tolerance). Only add a code
+    // that a second frame reads the same way shortly after.
+    if(this._candidateBarcode!==code||now-this._candidateBarcodeAt>SCAN_CONFIRM_MS){
+      this._candidateBarcode=code;
+      this._candidateBarcodeAt=now;
+      return;
+    }
+    this._candidateBarcode='';
+    this._candidateBarcodeAt=0;
     this._heldBarcode=code;
     this._heldBarcodeLastSeen=now;
+    // Adding means an AH lookup plus a list write; say at once that the
+    // barcode was read, so the wait is not mistaken for a missed scan.
+    this._setScanStatus(`Barcode ${code} gelezen, toevoegen…`);
     this._scanQueue.push(code);
     this._processScanQueue();
   }
@@ -1773,7 +1787,7 @@ class AhShoppingCard extends HTMLElement {
     this._scanRecent=[];
     clearTimeout(this._scanRecentTimer);this._scanRecentTimer=null;
     this._scanProcessing=false;
-    this._heldBarcode='';
+    this._heldBarcode='';this._candidateBarcode='';this._candidateBarcodeAt=0;
     this._scanInlineActive=false;
     this._scannerRoute='';
     this._render();
@@ -1789,7 +1803,7 @@ class AhShoppingCard extends HTMLElement {
     this._scanProduct=null;
     this._scanQueue=[];
     this._scanProcessing=false;
-    this._heldBarcode='';
+    this._heldBarcode='';this._candidateBarcode='';this._candidateBarcodeAt=0;
     this._heldBarcodeLastSeen=0; this._barcodeAbsentSince=0;
     this._decoderMisses=0;
     this._renderScanResult();
