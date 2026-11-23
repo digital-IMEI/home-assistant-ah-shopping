@@ -16,7 +16,7 @@ A custom integration with a bundled dashboard card for AH **Mijn lijst**, produc
 
 ## What it does
 
-- **Editable shopping list:** view AH Mijn lijst, search or scan products, adjust quantities, mark items completed, restore or remove completed items, and swipe to remove on touch screens.
+- **Editable shopping list:** view AH Mijn lijst, search or scan products, adjust quantities, mark items completed, restore or remove completed items, and swipe to remove on touch screens (a red bin strip shows while swiping and turns solid once letting go removes the product).
 - **Product details:** images, unit sizes, current prices, previous prices and Bonus labels; optional sorting by department or favourite-store walking route.
 - **Scheduled order:** read-only products, quantities and delivery date/time; AH's own order total and Bonus; on delivery day the live delivery window, the number of customers before you and a Besteld › Inpakken › Onderweg › Geleverd progress bar, as in the Appie app.
 - **Combined overview:** merge identical products from the list and the next order, while keeping ordered and extra quantities separate.
@@ -154,7 +154,7 @@ Most settings are available in the visual card editor. `entity` is an optional Y
 | `scan_label` | `Scan product` | Text on the scan button. |
 | `show_search` | `false` | Optional inline AH product search and add controls. Search starts after 0.8 seconds of inactivity or Enter; select a quantity and confirm or wait 2 seconds. |
 | `sort` | `input` | `input` preserves list order; `department` groups products under department headings; `store` follows the Appie app's favourite-store route, falling back to departments if unavailable. |
-| `fill_screen` | `false` | Let the card take the room its content needs, growing up to the screen height below the header (respecting mobile safe-area insets) before the list scrolls. On phones (up to 600 px wide), where dashboard sections stack, the card is as long as its list and the page scrolls instead. The camera view keeps the full height. Otherwise the dashboard grid layout applies. |
+| `fill_screen` | `false` | Let the card take the room its content needs, growing up to the screen height below the header (respecting mobile safe-area insets) before the list scrolls. On phones (up to 600 px wide), where dashboard sections stack, the card is as long as its list and its search results, and the page scrolls instead, wherever the swipe starts. The camera view keeps the full height. Otherwise the dashboard grid layout applies. |
 
 Legacy `product_source: cart` / `cart_and_order` map to `shopping_list` / `shopping_list_and_order`. Legacy `mode: scan_only` remains compatible.
 
