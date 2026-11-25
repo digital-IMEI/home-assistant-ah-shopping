@@ -189,9 +189,9 @@ The header shows AH's live delivery window instead of the booked slot as soon as
 | `native` | Browser BarcodeDetector, if supported. Availability varies by browser. |
 | `local` | Bundled lightweight EAN decoder; useful as a basic fallback. |
 
-The main C++ route supports **EAN-13, EAN-8 and UPC-A** and rotated codes. UPC-E support depends on the legacy/native route; it is not advertised as supported by the C++ worker. Check digits are validated before adding a decoded product.
+The main C++ route supports **EAN-13, EAN-8 and UPC-A** and rotated codes. UPC-E support depends on the legacy/native route; it is not advertised as supported by the C++ worker. Check digits are validated before adding a decoded product. A barcode is only added once two camera frames within a second read the same code, so a single misread frame (blur, glare, the lightweight `local` decoder) does not add a wrong product. A read barcode is shown at once while AH looks it up.
 
-You do not need to align the barcode exactly inside the guide: after missed attempts the scanner also searches the full camera image. Clear focus and adequate barcode size still matter.
+You do not need to align the barcode exactly inside the guide: after missed attempts the scanner also searches the rest of the preview. It never reads what the preview does not show: on a phone held upright the camera sees more at the sides than the screen, and a barcode there is ignored. Clear focus and adequate barcode size still matter.
 
 ## Entities and actions
 
