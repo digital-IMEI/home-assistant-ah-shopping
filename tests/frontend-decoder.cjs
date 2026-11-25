@@ -84,6 +84,20 @@ const server=http.createServer((req,res)=>{
    card._scanner={querySelector:s=>s==='video'?rotated:null};card._decoderMisses=2;card._scanCount=3;scanned='';transfers=[];
    await card._scanFrame();
    const rotatedPipeline=scanned===ean&&transfers.some(x=>x.mode==='full');
+   // A landscape camera in a portrait stage: the preview shows only the middle of the image. A barcode in the
+   // hidden side strip must not be read, not even by the full search after misses; one in view still is.
+   const stage={getBoundingClientRect:()=>({left:0,top:0,width:390,height:700}),
+    querySelector:s=>s==='video'?landscape:s==='.scanGuide'?{getBoundingClientRect:()=>({left:20,top:280,right:370,bottom:420})}:null};
+   const landscape=document.createElement('canvas');landscape.width=1280;landscape.height=720;
+   Object.defineProperties(landscape,{readyState:{value:4},videoWidth:{value:1280},videoHeight:{value:720}});
+   const placeBarcode=x=>{const l=landscape.getContext('2d');l.fillStyle='white';l.fillRect(0,0,1280,720);l.drawImage(canvas,x,270,400,144);};
+   const visible=card._visibleSourceRect.call({_scanner:stage,_digitalZoom:1},landscape);
+   const visibleMiddle=Math.abs(visible.sw-401)<=1&&Math.abs(visible.sx-(1280-visible.sw)/2)<=1&&visible.sh===720;
+   const scanHidden=async x=>{placeBarcode(x);card._scanner=stage;card._decoderMisses=2;card._scanCount=3;scanned='';transfers=[];card._decodeWasm=function(image,harder,mode){transfers.push({height:image.height,width:image.width,mode});return decodeOriginal.call(this,image,harder,mode);};await card._scanFrame();return scanned;};
+   const hiddenIgnored=await scanHidden(20)===''&&transfers.length>0&&transfers.every(t=>t.width<=401);
+   const shownRead=await scanHidden(440)===ean;
+   const guideInView=(()=>{const r=card._scanSourceRect.call({_scanner:stage,_digitalZoom:1,_cameraMirrored:false,_visibleSourceRect:card._visibleSourceRect},landscape);return r.sx>=visible.sx&&r.sx+r.sw<=visible.sx+visible.sw;})();
+   card._decodeWasm=decodeOriginal;
    card._decodeWasm=decodeOriginal;card._scanner={querySelector:s=>s==='video'?canvas:null};
    const worker=card._decodeWorker;card._decodeWorker={postMessage(){},terminate(){}};
    let timeoutRecovered=false;
@@ -148,8 +162,9 @@ const server=http.createServer((req,res)=>{
    const cooldown=card._scanLoop!=null&&scheduled===1;
    card._cancelScheduledScan();window.requestAnimationFrame=originalRAF;window.cancelAnimationFrame=originalCancel;
    card._cancelScheduledScan();card._stopWasmWorker();
-   return {normal,fastBand,smallCode,softCode,skewCode,cropMargins,mirrorProjection,rotatedCode,offCenter,stripOnlyTransfer,rotatedPipeline,immediate,cooldown,noFalsePositive,duplicateProtected,nativeIndependent,fullPipeline,timeoutRecovered,nativeTimeout,failureRecovered,successGreen,cooldownBlocks,redAfterCooldown,pauseNotAbsence,heldAfterPause,deliberateRepeat,pendingBlocks,failedNoCooldown,cleanVisuals,singleFrameWaits,secondFrameConfirms,otherCodeResets,staleReadWaits,readShownAtOnce};
+   return {normal,fastBand,smallCode,softCode,skewCode,cropMargins,mirrorProjection,rotatedCode,offCenter,stripOnlyTransfer,rotatedPipeline,immediate,cooldown,noFalsePositive,duplicateProtected,nativeIndependent,fullPipeline,timeoutRecovered,nativeTimeout,failureRecovered,successGreen,cooldownBlocks,redAfterCooldown,pauseNotAbsence,heldAfterPause,deliberateRepeat,pendingBlocks,failedNoCooldown,cleanVisuals,singleFrameWaits,secondFrameConfirms,otherCodeResets,staleReadWaits,readShownAtOnce,visibleMiddle,hiddenIgnored,shownRead,guideInView};
   });
+  for(const key of ['visibleMiddle','hiddenIgnored','shownRead','guideInView'])assert.equal(results[key],true,key);
   for(const key of ['singleFrameWaits','secondFrameConfirms','otherCodeResets','staleReadWaits','readShownAtOnce'])assert.equal(results[key],true,key);
   for(const key of ['normal','fastBand','smallCode','softCode','skewCode','rotatedCode','offCenter'])assert.equal(results[key],'4006381333931',key);
   assert.equal(results.cropMargins,true,'portrait camera crop includes quiet zones');

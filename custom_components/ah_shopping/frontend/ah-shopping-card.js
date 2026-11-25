@@ -1406,11 +1406,27 @@ class AhShoppingCard extends HTMLElement {
 
     // Include the quiet zones outside the drawn guide; clipping these makes
     // an otherwise sharp EAN unreadable, especially on portrait tablets.
+    // Never beyond what the preview shows, though: a code off-screen must not be added.
+    const visible=this._visibleSourceRect(video);
     const padX=(ex-sx)*.15,padY=(ey-sy)*.15;
-    const left=Math.floor(Math.max(0,sx-padX)),top=Math.floor(Math.max(0,sy-padY));
+    const left=Math.floor(Math.max(visible.sx,sx-padX)),top=Math.floor(Math.max(visible.sy,sy-padY));
     return {sx:left,sy:top,
-      sw:Math.max(1,Math.floor(Math.min(vw,ex+padX))-left),
-      sh:Math.max(1,Math.floor(Math.min(vh,ey+padY))-top)};
+      sw:Math.max(1,Math.floor(Math.min(visible.sx+visible.sw,ex+padX))-left),
+      sh:Math.max(1,Math.floor(Math.min(visible.sy+visible.sh,ey+padY))-top)};
+  }
+
+  // The part of the camera image the preview shows. The video is drawn with
+  // object-fit: cover and the digital zoom, so a landscape camera in a portrait
+  // stage shows only its middle; the rest is invisible and is not searched.
+  _visibleSourceRect(video){
+    const vw=video.videoWidth,vh=video.videoHeight;
+    const stageRect=this._scanner?.getBoundingClientRect?.();
+    const cw=stageRect?.width,ch=stageRect?.height;
+    if(!vw||!vh||!(cw>0)||!(ch>0))return {sx:0,sy:0,sw:vw,sh:vh};
+    const scale=Math.max(cw/vw,ch/vh)*Math.max(1,Number(this._digitalZoom||1));
+    const sw=Math.min(vw,cw/scale),sh=Math.min(vh,ch/scale);
+    const sx=Math.floor((vw-sw)/2),sy=Math.floor((vh-sh)/2);
+    return {sx,sy,sw:Math.max(1,Math.floor(sw)),sh:Math.max(1,Math.floor(sh))};
   }
 
   async _scanFrame(){
@@ -1442,8 +1458,9 @@ class AhShoppingCard extends HTMLElement {
     try{
       const c=this._scanCanvas,ctx=c.getContext('2d',{willReadFrequently:true});
       const expand=this._decoderMisses>=2&&this._scanCount%4===0;
+      // After misses, search the whole preview rather than only the guide.
       const {sx,sy,sw,sh}=expand
-        ? {sx:0,sy:0,sw:video.videoWidth,sh:video.videoHeight}
+        ? this._visibleSourceRect(video)
         : this._scanSourceRect(video);
       const targetWidth=Math.min(this._decoderMode==='wasm'?1600:(expand?1280:1200),sw);
       const width=Math.max(1,targetWidth),height=Math.max(1,Math.floor(sh*width/sw));
@@ -1548,9 +1565,10 @@ class AhShoppingCard extends HTMLElement {
         this._setScanStatus(`Decoder-fout: ${e.message||e} · Local EAN actief`,true);
         try{
           const c=this._scanCanvas;
-          c.width=Math.min(1600,video.videoWidth);c.height=Math.max(1,Math.floor(video.videoHeight*c.width/video.videoWidth));
+          const view=this._visibleSourceRect(video);
+          c.width=Math.min(1600,view.sw);c.height=Math.max(1,Math.floor(view.sh*c.width/view.sw));
           const fallbackCtx=c.getContext('2d',{willReadFrequently:true});
-          fallbackCtx.drawImage(video,0,0,c.width,c.height);
+          fallbackCtx.drawImage(video,view.sx,view.sy,view.sw,view.sh,0,0,c.width,c.height);
           code=decodeEANFromImageData(fallbackCtx.getImageData(0,0,c.width,c.height));
         }catch(fallbackError){}
       }else{
